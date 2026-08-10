@@ -6,6 +6,7 @@ import CardForm from "./CardForm";
 
 interface Props {
   card: VocabCard;
+  existingCategories?: string[];
   onUpdate: (updates: CardInput) => void;
   onDelete: () => void;
 }
@@ -18,13 +19,14 @@ const BOX_COLOR: Record<number, string> = {
   5: "bg-brand-600 text-white",
 };
 
-export default function CardListItem({ card, onUpdate, onDelete }: Props) {
+export default function CardListItem({ card, existingCategories, onUpdate, onDelete }: Props) {
   const [editing, setEditing] = useState(false);
 
   if (editing) {
     return (
       <CardForm
         initial={card}
+        existingCategories={existingCategories}
         onSubmit={(updates) => {
           onUpdate(updates);
           setEditing(false);

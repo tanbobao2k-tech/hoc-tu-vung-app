@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useVocabData } from "./hooks/useVocabData";
+import { VocabCard } from "./types";
 import DeckListPage from "./components/DeckListPage";
 import DeckPage from "./components/DeckPage";
 import StudyPage from "./components/StudyPage";
@@ -8,8 +9,8 @@ import QuizPage from "./components/QuizPage";
 type View =
   | { name: "decks" }
   | { name: "deck"; deckId: string }
-  | { name: "study"; deckId: string }
-  | { name: "quiz"; deckId: string };
+  | { name: "study"; deckId: string; cards: VocabCard[] }
+  | { name: "quiz"; deckId: string; cards: VocabCard[] };
 
 export default function App() {
   const { decks, createDeck, deleteDeck, addCard, updateCard, deleteCard, reviewCard } = useVocabData();
@@ -36,8 +37,8 @@ export default function App() {
         onAddCard={(card) => addCard(activeDeck.id, card)}
         onUpdateCard={(cardId, updates) => updateCard(activeDeck.id, cardId, updates)}
         onDeleteCard={(cardId) => deleteCard(activeDeck.id, cardId)}
-        onStartStudy={() => setView({ name: "study", deckId: activeDeck.id })}
-        onStartQuiz={() => setView({ name: "quiz", deckId: activeDeck.id })}
+        onStartStudy={(cards) => setView({ name: "study", deckId: activeDeck.id, cards })}
+        onStartQuiz={(cards) => setView({ name: "quiz", deckId: activeDeck.id, cards })}
       />
     );
   }
@@ -45,7 +46,7 @@ export default function App() {
   if (view.name === "study") {
     return (
       <StudyPage
-        deck={activeDeck}
+        cards={view.cards}
         onBack={() => setView({ name: "deck", deckId: activeDeck.id })}
         onReview={(cardId, remembered) => reviewCard(activeDeck.id, cardId, remembered)}
       />
@@ -54,7 +55,8 @@ export default function App() {
 
   return (
     <QuizPage
-      deck={activeDeck}
+      deckName={activeDeck.name}
+      cards={view.cards}
       onBack={() => setView({ name: "deck", deckId: activeDeck.id })}
       onReview={(cardId, remembered) => reviewCard(activeDeck.id, cardId, remembered)}
     />

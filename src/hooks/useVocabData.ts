@@ -64,6 +64,7 @@ export function useVocabData() {
         phonetic: card.phonetic?.trim() || undefined,
         audioUrl: card.audioUrl,
         imageUrl: card.imageUrl,
+        category: card.category?.trim() || undefined,
         box: 1,
         nextReviewAt: now,
         reviewCount: 0,
@@ -95,6 +96,7 @@ export function useVocabData() {
                   phonetic: updates.phonetic?.trim() || undefined,
                   audioUrl: updates.audioUrl ?? c.audioUrl,
                   imageUrl: updates.imageUrl ?? c.imageUrl,
+                  category: updates.category?.trim() || undefined,
                   updatedAt: Date.now(),
                 }
               : c

@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import { Deck, VocabCard } from "../types";
+import { VocabCard } from "../types";
+import { isCloseTypo } from "../lib/spellcheck";
 import PronounceButton from "./PronounceButton";
 
 interface Props {
-  deck: Deck;
+  deckName: string;
+  cards: VocabCard[];
   onBack: () => void;
   onReview: (cardId: string, remembered: boolean) => void;
 }
@@ -32,13 +34,13 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-function buildQuestions(deck: Deck, type: QuizType, count: number): Question[] {
-  const chosenCards = shuffle(deck.cards).slice(0, count);
+function buildQuestions(cards: VocabCard[], type: QuizType, count: number): Question[] {
+  const chosenCards = shuffle(cards).slice(0, count);
   if (type === "typing") {
     return chosenCards.map((card) => ({ type: "typing", card }));
   }
   return chosenCards.map((card) => {
-    const distractors = shuffle(deck.cards.filter((c) => c.id !== card.id && c.back !== card.back))
+    const distractors = shuffle(cards.filter((c) => c.id !== card.id && c.back !== card.back))
       .slice(0, 3)
       .map((c) => c.back);
     const options = shuffle([card.back, ...distractors]);
@@ -46,8 +48,8 @@ function buildQuestions(deck: Deck, type: QuizType, count: number): Question[] {
   });
 }
 
-export default function QuizPage({ deck, onBack, onReview }: Props) {
-  const maxQuestions = deck.cards.length;
+export default function QuizPage({ deckName, cards, onBack, onReview }: Props) {
+  const maxQuestions = cards.length;
   const [stage, setStage] = useState<"setup" | "running" | "result">("setup");
   const [quizType, setQuizType] = useState<QuizType>("multiple-choice");
   const [count, setCount] = useState(Math.min(10, maxQuestions));
@@ -62,7 +64,7 @@ export default function QuizPage({ deck, onBack, onReview }: Props) {
   const current = questions[index];
 
   function start() {
-    setQuestions(buildQuestions(deck, quizType, count));
+    setQuestions(buildQuestions(cards, quizType, count));
     setIndex(0);
     setSelected(null);
     setTypedAnswer("");
@@ -109,6 +111,11 @@ export default function QuizPage({ deck, onBack, onReview }: Props) {
     [current, typedAnswer]
   );
 
+  const isTypingCloseTypo = useMemo(
+    () => current?.type === "typing" && !isTypingCorrect && isCloseTypo(typedAnswer, current.card.front),
+    [current, typedAnswer, isTypingCorrect]
+  );
+
   if (stage === "setup") {
     return (
       <div className="mx-auto max-w-md animate-fade-in-up px-4 py-10">
@@ -116,7 +123,7 @@ export default function QuizPage({ deck, onBack, onReview }: Props) {
           ← Quay lại
         </button>
         <h1 className="text-2xl font-extrabold text-brand-900">Bài kiểm tra</h1>
-        <p className="mt-1 text-sm text-brand-700/70">{deck.name}</p>
+        <p className="mt-1 text-sm text-brand-700/70">{deckName}</p>
 
         <div className="mt-6 space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
           <div>
@@ -291,6 +298,9 @@ export default function QuizPage({ deck, onBack, onReview }: Props) {
           />
           {revealed && !isTypingCorrect && (
             <p className="text-sm text-brand-700/70">
+              {isTypingCloseTypo && (
+                <span className="mr-1 font-medium text-amber-600">Gần đúng, chỉ sai chính tả nhỏ —</span>
+              )}
               Đáp án đúng: <span className="font-semibold text-brand-900">{current.card.front}</span>
             </p>
           )}

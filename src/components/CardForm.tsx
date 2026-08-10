@@ -1,21 +1,24 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { CardInput, VocabCard } from "../types";
 import { lookupPronunciation } from "../lib/pronunciation";
 import { ImageResult, searchImages } from "../lib/images";
 import { suggestEnglishWord, suggestVietnameseMeaning } from "../lib/meaning";
+import { checkSpelling } from "../lib/spellcheck";
 
 interface Props {
   initial?: VocabCard;
+  existingCategories?: string[];
   onSubmit: (card: CardInput) => void;
   onCancel?: () => void;
 }
 
-export default function CardForm({ initial, onSubmit, onCancel }: Props) {
+export default function CardForm({ initial, existingCategories = [], onSubmit, onCancel }: Props) {
   const [front, setFront] = useState(initial?.front ?? "");
   const [back, setBack] = useState(initial?.back ?? "");
   const [phonetic, setPhonetic] = useState(initial?.phonetic ?? "");
   const [audioUrl, setAudioUrl] = useState(initial?.audioUrl);
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl);
+  const [category, setCategory] = useState(initial?.category ?? "");
   const [looking, setLooking] = useState(false);
   const [imageOptions, setImageOptions] = useState<ImageResult[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
@@ -24,61 +27,97 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
   const [meaningQueryFor, setMeaningQueryFor] = useState<string | null>(null);
   const [translatingWord, setTranslatingWord] = useState(false);
   const [wordQueryFor, setWordQueryFor] = useState<string | null>(null);
+  const [spellSuggestions, setSpellSuggestions] = useState<string[]>([]);
+  const [spellCheckedFor, setSpellCheckedFor] = useState<string | null>(null);
 
-  async function fetchPhoneticAndImages(word: string) {
+  // Mọi tra cứu bất đồng bộ (phiên âm, ảnh, nghĩa, chính tả...) mang theo số thế hệ
+  // tại thời điểm gọi. Nếu người dùng đã đổi sang từ khác trước khi kết quả trả về,
+  // số thế hệ hiện tại sẽ khác đi và kết quả cũ bị bỏ qua — tránh việc phiên âm/ảnh
+  // của từ trước bị gán nhầm vào thẻ đang gõ dở.
+  const genRef = useRef(0);
+  function bump() {
+    genRef.current += 1;
+    return genRef.current;
+  }
+
+  async function fetchPhoneticAndImages(word: string, gen: number) {
     if (!phonetic.trim()) {
       setLooking(true);
       const info = await lookupPronunciation(word);
       setLooking(false);
-      setPhonetic((prev) => (prev.trim() ? prev : info.phonetic ?? prev));
-      setAudioUrl((prev) => prev ?? info.audioUrl);
+      if (genRef.current === gen) {
+        setPhonetic((prev) => (prev.trim() ? prev : info.phonetic ?? prev));
+        setAudioUrl((prev) => prev ?? info.audioUrl);
+      }
     }
 
     if (imageQueryFor !== word) {
       setLoadingImages(true);
       const images = await searchImages(word);
       setLoadingImages(false);
-      setImageOptions(images);
-      setImageQueryFor(word);
+      if (genRef.current === gen) {
+        setImageOptions(images);
+        setImageQueryFor(word);
+      }
     }
   }
 
   async function handleFrontBlur() {
     const word = front.trim();
     if (!word) return;
+    const gen = genRef.current;
 
-    await fetchPhoneticAndImages(word);
+    if (spellCheckedFor !== word) {
+      checkSpelling(word).then((suggestions) => {
+        setSpellCheckedFor(word);
+        if (genRef.current === gen) setSpellSuggestions(suggestions);
+      });
+    }
+
+    await fetchPhoneticAndImages(word, gen);
 
     if (!back.trim() && meaningQueryFor !== word) {
       setTranslatingMeaning(true);
       const meaning = await suggestVietnameseMeaning(word);
       setTranslatingMeaning(false);
       setMeaningQueryFor(word);
-      setBack((prev) => (prev.trim() ? prev : meaning));
+      if (genRef.current === gen) setBack((prev) => (prev.trim() ? prev : meaning));
     }
+  }
+
+  async function applySpellingFix(suggestion: string) {
+    const gen = bump();
+    setFront(suggestion);
+    setSpellSuggestions([]);
+    setSpellCheckedFor(suggestion);
+    setPhonetic("");
+    setImageQueryFor(null);
+    await fetchPhoneticAndImages(suggestion, gen);
   }
 
   async function handleBackBlur() {
     const text = back.trim();
     if (!text || front.trim() || wordQueryFor === text) return;
+    const gen = genRef.current;
 
     setTranslatingWord(true);
     const suggested = await suggestEnglishWord(text);
     setTranslatingWord(false);
     setWordQueryFor(text);
-    if (!suggested) return;
+    if (!suggested || genRef.current !== gen || front.trim()) return;
 
-    setFront((prev) => (prev.trim() ? prev : suggested));
-    if (!front.trim()) {
-      await fetchPhoneticAndImages(suggested);
-    }
+    setFront(suggested);
+    genRef.current = gen + 1; // từ mới được điền tự động — coi như một "thế hệ" mới
+    await fetchPhoneticAndImages(suggested, genRef.current);
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!front.trim() || !back.trim()) return;
-    onSubmit({ front, back, phonetic, audioUrl, imageUrl });
+    onSubmit({ front, back, phonetic, audioUrl, imageUrl, category });
     if (!initial) {
+      // Giữ nguyên nhóm chủ đề để thêm liên tiếp nhiều từ cùng nhóm cho nhanh.
+      bump();
       setFront("");
       setBack("");
       setPhonetic("");
@@ -88,6 +127,8 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
       setImageQueryFor(null);
       setMeaningQueryFor(null);
       setWordQueryFor(null);
+      setSpellSuggestions([]);
+      setSpellCheckedFor(null);
     }
   }
 
@@ -100,12 +141,31 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
           </label>
           <input
             value={front}
-            onChange={(e) => setFront(e.target.value)}
+            onChange={(e) => {
+              bump();
+              setFront(e.target.value);
+              if (spellSuggestions.length > 0) setSpellSuggestions([]);
+            }}
             onBlur={handleFrontBlur}
             placeholder={translatingWord ? "Đang gợi ý từ..." : "vd: apple"}
             className="w-full rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
             required
           />
+          {spellSuggestions.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-amber-600">Có phải bạn muốn viết:</span>
+              {spellSuggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => applySpellingFix(s)}
+                  className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200 transition hover:bg-amber-100"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mt-1 flex items-center gap-2 text-xs text-brand-700/60">
             <span>Phiên âm:</span>
             <input
@@ -123,7 +183,10 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
           </label>
           <textarea
             value={back}
-            onChange={(e) => setBack(e.target.value)}
+            onChange={(e) => {
+              bump();
+              setBack(e.target.value);
+            }}
             onBlur={handleBackBlur}
             placeholder={
               translatingMeaning
@@ -135,6 +198,26 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
             required
           />
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-brand-700/70">
+          Nhóm chủ đề (tuỳ chọn)
+        </label>
+        <input
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          placeholder="vd: hoa quả, động vật..."
+          list="category-suggestions"
+          className="w-full max-w-xs rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+        />
+        {existingCategories.length > 0 && (
+          <datalist id="category-suggestions">
+            {existingCategories.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+        )}
       </div>
 
       <div>

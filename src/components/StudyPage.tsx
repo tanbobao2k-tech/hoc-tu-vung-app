@@ -1,22 +1,22 @@
 import { useMemo, useState } from "react";
-import { Deck } from "../types";
+import { VocabCard } from "../types";
 import { isDue } from "../lib/srs";
 import Flashcard from "./Flashcard";
 
 interface Props {
-  deck: Deck;
+  cards: VocabCard[];
   onBack: () => void;
   onReview: (cardId: string, remembered: boolean) => void;
 }
 
-export default function StudyPage({ deck, onBack, onReview }: Props) {
+export default function StudyPage({ cards, onBack, onReview }: Props) {
   const queue = useMemo(() => {
-    const due = deck.cards.filter((c) => isDue(c.nextReviewAt));
-    return due.length > 0 ? due : deck.cards;
+    const due = cards.filter((c) => isDue(c.nextReviewAt));
+    return due.length > 0 ? due : cards;
     // Chỉ tính danh sách ôn tập một lần khi bắt đầu phiên học,
     // tránh thẻ vừa trả lời bị tính lại/nhảy khỏi hàng đợi ngay lập tức.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deck.id]);
+  }, []);
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
