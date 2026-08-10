@@ -8,6 +8,8 @@ interface Props {
 }
 
 export default function Flashcard({ card, flipped, onFlip }: Props) {
+  const isMultiline = card.back.includes("\n");
+
   return (
     <div className="perspective mx-auto h-64 w-full max-w-md">
       <div
@@ -33,10 +35,21 @@ export default function Flashcard({ card, flipped, onFlip }: Props) {
           {card.phonetic && <span className="text-sm text-brand-700/60">{card.phonetic}</span>}
           <span className="mt-2 text-xs text-brand-700/40">Nhấn để xem nghĩa</span>
         </div>
-        <div className="flip-face flip-face-back absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-3xl bg-brand-600 p-6 text-center shadow-md">
-          <span className="text-xs font-semibold uppercase tracking-widest text-brand-100">Tiếng Việt</span>
-          <h2 className="text-2xl font-bold text-white">{card.back}</h2>
-          <span className="mt-2 text-xs text-brand-100/70">Nhấn để xem từ</span>
+        <div className="flip-face flip-face-back absolute inset-0 flex flex-col items-center gap-2 rounded-3xl bg-brand-600 p-6 text-center shadow-md">
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-widest text-brand-100">
+            Tiếng Việt
+          </span>
+          {isMultiline ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full flex-1 overflow-y-auto whitespace-pre-line px-1 text-left text-sm leading-relaxed text-white"
+            >
+              {card.back}
+            </div>
+          ) : (
+            <h2 className="flex flex-1 items-center text-2xl font-bold text-white">{card.back}</h2>
+          )}
+          <span className="shrink-0 text-xs text-brand-100/70">Nhấn để xem từ</span>
         </div>
       </div>
     </div>

@@ -177,7 +177,8 @@ export default function QuizPage({ deck, onBack, onReview }: Props) {
     const pct = Math.round((correctCount / total) * 100);
     return (
       <div className="mx-auto max-w-md animate-fade-in-up px-4 py-16 text-center">
-        <h2 className="text-2xl font-extrabold text-brand-900">Kết quả</h2>
+        <p className="text-xs font-semibold uppercase tracking-widest text-brand-500">Kết quả</p>
+        <h2 className="mt-1 text-3xl font-extrabold text-brand-900">Tốt lắm bé cưng !!</h2>
         <p className="mt-3 text-5xl font-extrabold text-brand-600">{pct}%</p>
         <p className="mt-2 text-brand-700/70">
           Đúng {correctCount}/{total} câu

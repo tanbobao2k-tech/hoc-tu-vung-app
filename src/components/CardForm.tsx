@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { CardInput, VocabCard } from "../types";
 import { lookupPronunciation } from "../lib/pronunciation";
 import { ImageResult, searchImages } from "../lib/images";
+import { suggestEnglishWord, suggestVietnameseMeaning } from "../lib/meaning";
 
 interface Props {
   initial?: VocabCard;
@@ -19,17 +20,18 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
   const [imageOptions, setImageOptions] = useState<ImageResult[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [imageQueryFor, setImageQueryFor] = useState<string | null>(null);
+  const [translatingMeaning, setTranslatingMeaning] = useState(false);
+  const [meaningQueryFor, setMeaningQueryFor] = useState<string | null>(null);
+  const [translatingWord, setTranslatingWord] = useState(false);
+  const [wordQueryFor, setWordQueryFor] = useState<string | null>(null);
 
-  async function handleFrontBlur() {
-    const word = front.trim();
-    if (!word) return;
-
+  async function fetchPhoneticAndImages(word: string) {
     if (!phonetic.trim()) {
       setLooking(true);
       const info = await lookupPronunciation(word);
       setLooking(false);
-      if (info.phonetic) setPhonetic(info.phonetic);
-      if (info.audioUrl) setAudioUrl(info.audioUrl);
+      setPhonetic((prev) => (prev.trim() ? prev : info.phonetic ?? prev));
+      setAudioUrl((prev) => prev ?? info.audioUrl);
     }
 
     if (imageQueryFor !== word) {
@@ -38,6 +40,37 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
       setLoadingImages(false);
       setImageOptions(images);
       setImageQueryFor(word);
+    }
+  }
+
+  async function handleFrontBlur() {
+    const word = front.trim();
+    if (!word) return;
+
+    await fetchPhoneticAndImages(word);
+
+    if (!back.trim() && meaningQueryFor !== word) {
+      setTranslatingMeaning(true);
+      const meaning = await suggestVietnameseMeaning(word);
+      setTranslatingMeaning(false);
+      setMeaningQueryFor(word);
+      setBack((prev) => (prev.trim() ? prev : meaning));
+    }
+  }
+
+  async function handleBackBlur() {
+    const text = back.trim();
+    if (!text || front.trim() || wordQueryFor === text) return;
+
+    setTranslatingWord(true);
+    const suggested = await suggestEnglishWord(text);
+    setTranslatingWord(false);
+    setWordQueryFor(text);
+    if (!suggested) return;
+
+    setFront((prev) => (prev.trim() ? prev : suggested));
+    if (!front.trim()) {
+      await fetchPhoneticAndImages(suggested);
     }
   }
 
@@ -53,6 +86,8 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
       setImageUrl(undefined);
       setImageOptions([]);
       setImageQueryFor(null);
+      setMeaningQueryFor(null);
+      setWordQueryFor(null);
     }
   }
 
@@ -67,7 +102,7 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
             value={front}
             onChange={(e) => setFront(e.target.value)}
             onBlur={handleFrontBlur}
-            placeholder="vd: apple"
+            placeholder={translatingWord ? "Đang gợi ý từ..." : "vd: apple"}
             className="w-full rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
             required
           />
@@ -82,15 +117,21 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-brand-700/70">
-            Nghĩa tiếng Việt
+          <label className="mb-1 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-brand-700/70">
+            <span>Nghĩa tiếng Việt</span>
+            {translatingMeaning && <span className="normal-case text-brand-700/50">Đang tra nghĩa...</span>}
           </label>
           <textarea
             value={back}
             onChange={(e) => setBack(e.target.value)}
-            placeholder="vd: quả táo"
-            rows={2}
-            className="w-full resize-none rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+            onBlur={handleBackBlur}
+            placeholder={
+              translatingMeaning
+                ? "Đang tra nghĩa..."
+                : "vd: quả táo (gõ từ tiếng Anh rồi rời ô để tự gợi ý, hoặc tự gõ tiếng Việt để tự gợi ý từ tiếng Anh)"
+            }
+            rows={4}
+            className="w-full resize-none whitespace-pre-line rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
             required
           />
         </div>

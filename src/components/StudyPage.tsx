@@ -49,7 +49,10 @@ export default function StudyPage({ deck, onBack, onReview }: Props) {
   if (finished) {
     return (
       <div className="mx-auto max-w-md animate-fade-in-up px-4 py-16 text-center">
-        <h2 className="text-2xl font-extrabold text-brand-900">Hoàn thành phiên học!</h2>
+        <p className="text-xs font-semibold uppercase tracking-widest text-brand-500">
+          Hoàn thành phiên học!
+        </p>
+        <h2 className="mt-1 text-3xl font-extrabold text-brand-900">Tốt lắm bé cưng !!</h2>
         <p className="mt-2 text-brand-700/70">
           Đã nhớ <span className="font-semibold text-brand-700">{known}</span> · Chưa nhớ{" "}
           <span className="font-semibold text-brand-700">{unknown}</span>
