@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AppData, Deck, VocabCard } from "../types";
+import { AppData, CardInput, Deck, VocabCard } from "../types";
 import { nextBox, nextReviewAt } from "../lib/srs";
 
 const STORAGE_KEY = "hoc-tu-vung:data";
@@ -55,7 +55,7 @@ export function useVocabData() {
   }, []);
 
   const addCard = useCallback(
-    (deckId: string, card: { front: string; back: string; phonetic?: string; audioUrl?: string }) => {
+    (deckId: string, card: CardInput) => {
       const now = Date.now();
       const newCard: VocabCard = {
         id: newId(),
@@ -63,6 +63,7 @@ export function useVocabData() {
         back: card.back.trim(),
         phonetic: card.phonetic?.trim() || undefined,
         audioUrl: card.audioUrl,
+        imageUrl: card.imageUrl,
         box: 1,
         nextReviewAt: now,
         reviewCount: 0,
@@ -79,36 +80,30 @@ export function useVocabData() {
     []
   );
 
-  const updateCard = useCallback(
-    (
-      deckId: string,
-      cardId: string,
-      updates: { front: string; back: string; phonetic?: string; audioUrl?: string }
-    ) => {
-      setData((prev) => ({
-        decks: prev.decks.map((d) => {
-          if (d.id !== deckId) return d;
-          return {
-            ...d,
-            cards: d.cards.map((c) =>
-              c.id === cardId
-                ? {
-                    ...c,
-                    front: updates.front.trim(),
-                    back: updates.back.trim(),
-                    phonetic: updates.phonetic?.trim() || undefined,
-                    audioUrl: updates.audioUrl ?? c.audioUrl,
-                    updatedAt: Date.now(),
-                  }
-                : c
-            ),
-            updatedAt: Date.now(),
-          };
-        }),
-      }));
-    },
-    []
-  );
+  const updateCard = useCallback((deckId: string, cardId: string, updates: CardInput) => {
+    setData((prev) => ({
+      decks: prev.decks.map((d) => {
+        if (d.id !== deckId) return d;
+        return {
+          ...d,
+          cards: d.cards.map((c) =>
+            c.id === cardId
+              ? {
+                  ...c,
+                  front: updates.front.trim(),
+                  back: updates.back.trim(),
+                  phonetic: updates.phonetic?.trim() || undefined,
+                  audioUrl: updates.audioUrl ?? c.audioUrl,
+                  imageUrl: updates.imageUrl ?? c.imageUrl,
+                  updatedAt: Date.now(),
+                }
+              : c
+          ),
+          updatedAt: Date.now(),
+        };
+      }),
+    }));
+  }, []);
 
   const deleteCard = useCallback((deckId: string, cardId: string) => {
     setData((prev) => ({

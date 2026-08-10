@@ -15,7 +15,17 @@ export default function Flashcard({ card, flipped, onFlip }: Props) {
         className={`flip-card relative h-full w-full cursor-pointer ${flipped ? "flipped" : ""}`}
       >
         <div className="flip-face absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white p-6 text-center shadow-md ring-1 ring-black/5">
-          <span className="text-xs font-semibold uppercase tracking-widest text-brand-500">Tiếng Anh</span>
+          {card.imageUrl ? (
+            <img
+              src={card.imageUrl}
+              alt=""
+              className="h-24 w-24 rounded-2xl object-cover ring-1 ring-black/5"
+            />
+          ) : (
+            <span className="text-xs font-semibold uppercase tracking-widest text-brand-500">
+              Tiếng Anh
+            </span>
+          )}
           <div className="flex items-center gap-3">
             <h2 className="text-3xl font-extrabold text-brand-900">{card.front}</h2>
             <PronounceButton word={card.front} audioUrl={card.audioUrl} />

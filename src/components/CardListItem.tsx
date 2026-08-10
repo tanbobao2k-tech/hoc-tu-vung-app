@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { VocabCard } from "../types";
+import { CardInput, VocabCard } from "../types";
 import { boxLabel } from "../lib/srs";
 import PronounceButton from "./PronounceButton";
 import CardForm from "./CardForm";
 
 interface Props {
   card: VocabCard;
-  onUpdate: (updates: { front: string; back: string; phonetic?: string; audioUrl?: string }) => void;
+  onUpdate: (updates: CardInput) => void;
   onDelete: () => void;
 }
 
@@ -36,6 +36,13 @@ export default function CardListItem({ card, onUpdate, onDelete }: Props) {
 
   return (
     <div className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-black/5">
+      {card.imageUrl && (
+        <img
+          src={card.imageUrl}
+          alt=""
+          className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-black/5"
+        />
+      )}
       <PronounceButton word={card.front} audioUrl={card.audioUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">

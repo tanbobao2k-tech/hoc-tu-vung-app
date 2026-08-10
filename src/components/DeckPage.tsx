@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Deck } from "../types";
+import { CardInput, Deck } from "../types";
 import { isDue } from "../lib/srs";
 import CardForm from "./CardForm";
 import CardListItem from "./CardListItem";
@@ -7,11 +7,8 @@ import CardListItem from "./CardListItem";
 interface Props {
   deck: Deck;
   onBack: () => void;
-  onAddCard: (card: { front: string; back: string; phonetic?: string; audioUrl?: string }) => void;
-  onUpdateCard: (
-    cardId: string,
-    updates: { front: string; back: string; phonetic?: string; audioUrl?: string }
-  ) => void;
+  onAddCard: (card: CardInput) => void;
+  onUpdateCard: (cardId: string, updates: CardInput) => void;
   onDeleteCard: (cardId: string) => void;
   onStartStudy: () => void;
   onStartQuiz: () => void;

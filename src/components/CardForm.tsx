@@ -1,10 +1,11 @@
 import { FormEvent, useState } from "react";
-import { VocabCard } from "../types";
+import { CardInput, VocabCard } from "../types";
 import { lookupPronunciation } from "../lib/pronunciation";
+import { ImageResult, searchImages } from "../lib/images";
 
 interface Props {
   initial?: VocabCard;
-  onSubmit: (card: { front: string; back: string; phonetic?: string; audioUrl?: string }) => void;
+  onSubmit: (card: CardInput) => void;
   onCancel?: () => void;
 }
 
@@ -13,26 +14,45 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
   const [back, setBack] = useState(initial?.back ?? "");
   const [phonetic, setPhonetic] = useState(initial?.phonetic ?? "");
   const [audioUrl, setAudioUrl] = useState(initial?.audioUrl);
+  const [imageUrl, setImageUrl] = useState(initial?.imageUrl);
   const [looking, setLooking] = useState(false);
+  const [imageOptions, setImageOptions] = useState<ImageResult[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [imageQueryFor, setImageQueryFor] = useState<string | null>(null);
 
   async function handleFrontBlur() {
-    if (!front.trim() || phonetic.trim()) return;
-    setLooking(true);
-    const info = await lookupPronunciation(front);
-    setLooking(false);
-    if (info.phonetic) setPhonetic(info.phonetic);
-    if (info.audioUrl) setAudioUrl(info.audioUrl);
+    const word = front.trim();
+    if (!word) return;
+
+    if (!phonetic.trim()) {
+      setLooking(true);
+      const info = await lookupPronunciation(word);
+      setLooking(false);
+      if (info.phonetic) setPhonetic(info.phonetic);
+      if (info.audioUrl) setAudioUrl(info.audioUrl);
+    }
+
+    if (imageQueryFor !== word) {
+      setLoadingImages(true);
+      const images = await searchImages(word);
+      setLoadingImages(false);
+      setImageOptions(images);
+      setImageQueryFor(word);
+    }
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!front.trim() || !back.trim()) return;
-    onSubmit({ front, back, phonetic, audioUrl });
+    onSubmit({ front, back, phonetic, audioUrl, imageUrl });
     if (!initial) {
       setFront("");
       setBack("");
       setPhonetic("");
       setAudioUrl(undefined);
+      setImageUrl(undefined);
+      setImageOptions([]);
+      setImageQueryFor(null);
     }
   }
 
@@ -75,6 +95,44 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
           />
         </div>
       </div>
+
+      <div>
+        <label className="mb-1 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-brand-700/70">
+          <span>Ảnh minh hoạ</span>
+          {loadingImages && <span className="normal-case text-brand-700/50">Đang tìm ảnh...</span>}
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          {imageUrl && (
+            <button
+              type="button"
+              onClick={() => setImageUrl(undefined)}
+              title="Bỏ chọn ảnh"
+              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg ring-2 ring-brand-600"
+            >
+              <img src={imageUrl} alt={front} className="h-full w-full object-cover" />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-medium text-white opacity-0 hover:opacity-100">
+                Bỏ chọn
+              </span>
+            </button>
+          )}
+          {imageOptions
+            .filter((img) => img.fullUrl !== imageUrl)
+            .map((img) => (
+              <button
+                key={img.id}
+                type="button"
+                onClick={() => setImageUrl(img.fullUrl)}
+                className="h-16 w-16 shrink-0 overflow-hidden rounded-lg ring-1 ring-brand-200 transition hover:ring-2 hover:ring-brand-400"
+              >
+                <img src={img.thumbUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+              </button>
+            ))}
+          {!loadingImages && imageOptions.length === 0 && !imageUrl && (
+            <p className="text-xs text-brand-700/50">Gõ từ tiếng Anh rồi rời khỏi ô để xem gợi ý ảnh.</p>
+          )}
+        </div>
+      </div>
+
       <div className="flex items-center justify-end gap-2">
         {onCancel && (
           <button

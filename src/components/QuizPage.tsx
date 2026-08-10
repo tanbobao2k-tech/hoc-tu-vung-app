@@ -235,9 +235,18 @@ export default function QuizPage({ deck, onBack, onReview }: Props) {
 
       {current.type === "multiple-choice" ? (
         <div className="animate-fade-in-up space-y-4">
-          <div className="flex items-center justify-center gap-3 rounded-2xl bg-white py-8 shadow-sm ring-1 ring-black/5">
-            <h2 className="text-2xl font-extrabold text-brand-900">{current.card.front}</h2>
-            <PronounceButton word={current.card.front} audioUrl={current.card.audioUrl} />
+          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-white py-8 shadow-sm ring-1 ring-black/5">
+            {current.card.imageUrl && (
+              <img
+                src={current.card.imageUrl}
+                alt=""
+                className="h-20 w-20 rounded-2xl object-cover ring-1 ring-black/5"
+              />
+            )}
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-extrabold text-brand-900">{current.card.front}</h2>
+              <PronounceButton word={current.card.front} audioUrl={current.card.audioUrl} />
+            </div>
           </div>
           <div className="grid gap-2">
             {current.options.map((option) => {
