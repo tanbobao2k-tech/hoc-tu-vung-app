@@ -47,15 +47,26 @@ async function fetchEnglishSenses(word: string): Promise<WordSense[]> {
   }
 }
 
-async function translateText(text: string, langpair: "en|vi" | "vi|en"): Promise<string | null> {
+type Lang = "en" | "vi";
+
+/**
+ * Dịch qua endpoint không chính thức của Google Translate (NMT thật, có CORS mở).
+ * Đã thử MyMemory trước đó nhưng dữ liệu dịch cộng đồng của họ không đáng tin cho
+ * từ/câu ngắn (vd: "con gà" từng bị dịch nhầm thành "API") nên chuyển sang đây.
+ */
+async function translateText(text: string, from: Lang, to: Lang): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(
+        text
+      )}`
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const translated = data?.responseData?.translatedText;
-    return typeof translated === "string" ? translated : null;
+    const segments = data?.[0];
+    if (!Array.isArray(segments)) return null;
+    const translated = segments.map((seg: [string]) => seg?.[0] ?? "").join("");
+    return translated || null;
   } catch {
     return null;
   }
@@ -70,15 +81,15 @@ export async function suggestVietnameseMeaning(word: string): Promise<string> {
   const senses = await fetchEnglishSenses(word);
 
   if (senses.length === 0) {
-    const direct = await translateText(word, "en|vi");
+    const direct = await translateText(word, "en", "vi");
     return direct ?? "";
   }
 
   const lines = await Promise.all(
     senses.map(async (sense, i) => {
       const [viDef, viExample] = await Promise.all([
-        translateText(sense.definitionEn, "en|vi"),
-        sense.exampleEn ? translateText(sense.exampleEn, "en|vi") : Promise.resolve(null),
+        translateText(sense.definitionEn, "en", "vi"),
+        sense.exampleEn ? translateText(sense.exampleEn, "en", "vi") : Promise.resolve(null),
       ]);
       const posLabel = POS_LABEL_VI[sense.partOfSpeech] ?? sense.partOfSpeech;
       const prefix = senses.length > 1 ? `${i + 1}. ` : "";
@@ -95,7 +106,7 @@ export async function suggestVietnameseMeaning(word: string): Promise<string> {
 
 /** Gợi ý từ tiếng Anh tương ứng với một cụm nghĩa tiếng Việt (dịch một chiều đơn giản). */
 export async function suggestEnglishWord(vietnameseText: string): Promise<string | null> {
-  const translated = await translateText(vietnameseText, "vi|en");
+  const translated = await translateText(vietnameseText, "vi", "en");
   if (!translated) return null;
   return translated.trim().toLowerCase().replace(/[.!?]+$/, "");
 }

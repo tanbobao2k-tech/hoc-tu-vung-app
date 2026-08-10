@@ -165,7 +165,15 @@ export default function CardForm({ initial, onSubmit, onCancel }: Props) {
                 onClick={() => setImageUrl(img.fullUrl)}
                 className="h-16 w-16 shrink-0 overflow-hidden rounded-lg ring-1 ring-brand-200 transition hover:ring-2 hover:ring-brand-400"
               >
-                <img src={img.thumbUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                <img
+                  src={img.thumbUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== img.fullUrl) e.currentTarget.src = img.fullUrl;
+                  }}
+                />
               </button>
             ))}
           {!loadingImages && imageOptions.length === 0 && !imageUrl && (
