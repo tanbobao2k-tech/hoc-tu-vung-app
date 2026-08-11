@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "./fetchWithTimeout";
+
 /**
  * Kiểm tra chính tả một từ tiếng Anh qua LanguageTool (miễn phí, không cần key).
  * Trả về vài từ gợi ý sửa nếu phát hiện lỗi chính tả, mảng rỗng nếu từ đúng
@@ -8,12 +10,12 @@ export async function checkSpelling(word: string): Promise<string[]> {
   if (!trimmed || /\s/.test(trimmed)) return [];
 
   try {
-    const res = await fetch("https://api.languagetool.org/v2/check", {
+    const res = await fetchWithTimeout("https://api.languagetool.org/v2/check", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `text=${encodeURIComponent(trimmed)}&language=en-US`,
     });
-    if (!res.ok) return [];
+    if (!res?.ok) return [];
     const data = await res.json();
     const matches: Array<{
       rule?: { issueType?: string; category?: { id?: string } };

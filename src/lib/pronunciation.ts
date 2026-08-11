@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "./fetchWithTimeout";
+
 export interface PronunciationInfo {
   phonetic?: string;
   audioUrl?: string;
@@ -15,12 +17,12 @@ export async function lookupPronunciation(
   if (!trimmed) return {};
 
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(
         trimmed
       )}`
     );
-    if (!res.ok) return {};
+    if (!res?.ok) return {};
     const data = await res.json();
     const entry = Array.isArray(data) ? data[0] : null;
     if (!entry) return {};

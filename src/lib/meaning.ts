@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "./fetchWithTimeout";
+
 interface WordSense {
   partOfSpeech: string;
   definitionEn: string;
@@ -21,10 +23,10 @@ const MAX_SENSES = 4;
 
 async function fetchEnglishSenses(word: string): Promise<WordSense[]> {
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`
     );
-    if (!res.ok) return [];
+    if (!res?.ok) return [];
     const data = await res.json();
     const entry = Array.isArray(data) ? data[0] : null;
     const meanings = entry?.meanings;
@@ -49,19 +51,42 @@ async function fetchEnglishSenses(word: string): Promise<WordSense[]> {
 
 type Lang = "en" | "vi";
 
+// Endpoint dịch không chính thức của Google thỉnh thoảng "treo" (không lỗi, không
+// phản hồi) khi bị gọi dồn dập nhiều request cùng lúc — một từ có thể cần dịch
+// 5-10 câu/định nghĩa cùng lúc. Giới hạn số request dịch chạy đồng thời trên toàn
+// app để giảm khả năng bị treo, cộng với timeout ở fetchWithTimeout làm lưới an toàn.
+const MAX_CONCURRENT_TRANSLATIONS = 3;
+let activeTranslations = 0;
+const translationQueue: Array<() => void> = [];
+
+function acquireTranslationSlot(): Promise<void> {
+  if (activeTranslations < MAX_CONCURRENT_TRANSLATIONS) {
+    activeTranslations++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => translationQueue.push(resolve));
+}
+
+function releaseTranslationSlot() {
+  const next = translationQueue.shift();
+  if (next) next();
+  else activeTranslations--;
+}
+
 /**
  * Dịch qua endpoint không chính thức của Google Translate (NMT thật, có CORS mở).
  * Đã thử MyMemory trước đó nhưng dữ liệu dịch cộng đồng của họ không đáng tin cho
  * từ/câu ngắn (vd: "con gà" từng bị dịch nhầm thành "API") nên chuyển sang đây.
  */
 async function translateText(text: string, from: Lang, to: Lang): Promise<string | null> {
+  await acquireTranslationSlot();
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(
         text
       )}`
     );
-    if (!res.ok) return null;
+    if (!res?.ok) return null;
     const data = await res.json();
     const segments = data?.[0];
     if (!Array.isArray(segments)) return null;
@@ -69,6 +94,8 @@ async function translateText(text: string, from: Lang, to: Lang): Promise<string
     return translated || null;
   } catch {
     return null;
+  } finally {
+    releaseTranslationSlot();
   }
 }
 
@@ -129,10 +156,10 @@ export async function fetchExampleSentences(word: string): Promise<ExampleSenten
   if (!trimmed) return [];
 
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(trimmed)}`
     );
-    if (!res.ok) return [];
+    if (!res?.ok) return [];
     const data = await res.json();
     const entry = Array.isArray(data) ? data[0] : null;
     const meanings = entry?.meanings;

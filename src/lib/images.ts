@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "./fetchWithTimeout";
+
 export interface ImageResult {
   id: string;
   thumbUrl: string;
@@ -14,12 +16,12 @@ interface RawResult {
 async function queryOpenverse(word: string, source?: string): Promise<ImageResult[]> {
   try {
     const sourceParam = source ? `&source=${source}` : "";
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://api.openverse.org/v1/images/?q=${encodeURIComponent(
         word
       )}&page_size=6&mature=false${sourceParam}`
     );
-    if (!res.ok) return [];
+    if (!res?.ok) return [];
     const data = await res.json();
     const results: RawResult[] = Array.isArray(data.results) ? data.results : [];
     return results
