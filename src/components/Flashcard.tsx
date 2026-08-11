@@ -8,7 +8,8 @@ interface Props {
 }
 
 export default function Flashcard({ card, flipped, onFlip }: Props) {
-  const isMultiline = card.back.includes("\n");
+  const hasExamples = !!card.examples && card.examples.length > 0;
+  const isMultiline = card.back.includes("\n") || hasExamples;
 
   return (
     <div className="perspective mx-auto h-64 w-full max-w-md">
@@ -45,6 +46,19 @@ export default function Flashcard({ card, flipped, onFlip }: Props) {
               className="w-full flex-1 overflow-y-auto whitespace-pre-line px-1 text-left text-sm leading-relaxed text-white"
             >
               {card.back}
+              {hasExamples && (
+                <div className="mt-3 space-y-2 border-t border-white/20 pt-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-100/80">
+                    Ví dụ
+                  </p>
+                  {card.examples!.map((ex, i) => (
+                    <p key={i} className="text-xs leading-relaxed">
+                      <span className="text-white">{ex.en}</span>
+                      {ex.vi && <span className="block text-brand-100/70">— {ex.vi}</span>}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <h2 className="flex flex-1 items-center text-2xl font-bold text-white">{card.back}</h2>

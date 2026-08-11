@@ -65,6 +65,7 @@ export function useVocabData() {
         audioUrl: card.audioUrl,
         imageUrl: card.imageUrl,
         category: card.category?.trim() || undefined,
+        examples: card.examples?.length ? card.examples : undefined,
         box: 1,
         nextReviewAt: now,
         reviewCount: 0,
@@ -97,6 +98,7 @@ export function useVocabData() {
                   audioUrl: updates.audioUrl ?? c.audioUrl,
                   imageUrl: updates.imageUrl ?? c.imageUrl,
                   category: updates.category?.trim() || undefined,
+                  examples: updates.examples ?? c.examples,
                   updatedAt: Date.now(),
                 }
               : c

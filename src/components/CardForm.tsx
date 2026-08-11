@@ -1,8 +1,8 @@
 import { FormEvent, useRef, useState } from "react";
-import { CardInput, VocabCard } from "../types";
+import { CardInput, VocabCard, VocabExample } from "../types";
 import { lookupPronunciation } from "../lib/pronunciation";
 import { ImageResult, searchImages } from "../lib/images";
-import { suggestEnglishWord, suggestVietnameseMeaning } from "../lib/meaning";
+import { ExampleSentence, fetchExampleSentences, suggestEnglishWord, suggestVietnameseMeaning } from "../lib/meaning";
 import { checkSpelling } from "../lib/spellcheck";
 
 interface Props {
@@ -29,6 +29,9 @@ export default function CardForm({ initial, existingCategories = [], onSubmit, o
   const [wordQueryFor, setWordQueryFor] = useState<string | null>(null);
   const [spellSuggestions, setSpellSuggestions] = useState<string[]>([]);
   const [spellCheckedFor, setSpellCheckedFor] = useState<string | null>(null);
+  const [examples, setExamples] = useState<VocabExample[]>(initial?.examples ?? []);
+  const [loadingExamples, setLoadingExamples] = useState(false);
+  const [exampleQueryFor, setExampleQueryFor] = useState<string | null>(null);
 
   // Mọi tra cứu bất đồng bộ (phiên âm, ảnh, nghĩa, chính tả...) mang theo số thế hệ
   // tại thời điểm gọi. Nếu người dùng đã đổi sang từ khác trước khi kết quả trả về,
@@ -40,26 +43,49 @@ export default function CardForm({ initial, existingCategories = [], onSubmit, o
     return genRef.current;
   }
 
-  async function fetchPhoneticAndImages(word: string, gen: number) {
+  async function fetchWordExtras(word: string, gen: number) {
+    const tasks: Promise<void>[] = [];
+
     if (!phonetic.trim()) {
       setLooking(true);
-      const info = await lookupPronunciation(word);
-      setLooking(false);
-      if (genRef.current === gen) {
-        setPhonetic((prev) => (prev.trim() ? prev : info.phonetic ?? prev));
-        setAudioUrl((prev) => prev ?? info.audioUrl);
-      }
+      tasks.push(
+        lookupPronunciation(word).then((info) => {
+          setLooking(false);
+          if (genRef.current === gen) {
+            setPhonetic((prev) => (prev.trim() ? prev : info.phonetic ?? prev));
+            setAudioUrl((prev) => prev ?? info.audioUrl);
+          }
+        })
+      );
     }
 
     if (imageQueryFor !== word) {
       setLoadingImages(true);
-      const images = await searchImages(word);
-      setLoadingImages(false);
-      if (genRef.current === gen) {
-        setImageOptions(images);
-        setImageQueryFor(word);
-      }
+      tasks.push(
+        searchImages(word).then((images) => {
+          setLoadingImages(false);
+          if (genRef.current === gen) {
+            setImageOptions(images);
+            setImageQueryFor(word);
+          }
+        })
+      );
     }
+
+    if (exampleQueryFor !== word) {
+      setLoadingExamples(true);
+      tasks.push(
+        fetchExampleSentences(word).then((fetched: ExampleSentence[]) => {
+          setLoadingExamples(false);
+          if (genRef.current === gen) {
+            setExamples(fetched);
+            setExampleQueryFor(word);
+          }
+        })
+      );
+    }
+
+    await Promise.all(tasks);
   }
 
   async function handleFrontBlur() {
@@ -74,7 +100,7 @@ export default function CardForm({ initial, existingCategories = [], onSubmit, o
       });
     }
 
-    await fetchPhoneticAndImages(word, gen);
+    await fetchWordExtras(word, gen);
 
     if (!back.trim() && meaningQueryFor !== word) {
       setTranslatingMeaning(true);
@@ -92,7 +118,9 @@ export default function CardForm({ initial, existingCategories = [], onSubmit, o
     setSpellCheckedFor(suggestion);
     setPhonetic("");
     setImageQueryFor(null);
-    await fetchPhoneticAndImages(suggestion, gen);
+    setExamples([]);
+    setExampleQueryFor(null);
+    await fetchWordExtras(suggestion, gen);
   }
 
   async function handleBackBlur() {
@@ -108,13 +136,26 @@ export default function CardForm({ initial, existingCategories = [], onSubmit, o
 
     setFront(suggested);
     genRef.current = gen + 1; // từ mới được điền tự động — coi như một "thế hệ" mới
-    await fetchPhoneticAndImages(suggested, genRef.current);
+    await fetchWordExtras(suggested, genRef.current);
+  }
+
+  function updateExample(index: number, field: "en" | "vi", value: string) {
+    setExamples((prev) => prev.map((ex, i) => (i === index ? { ...ex, [field]: value } : ex)));
+  }
+
+  function removeExample(index: number) {
+    setExamples((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addBlankExample() {
+    setExamples((prev) => (prev.length < 3 ? [...prev, { en: "", vi: "" }] : prev));
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!front.trim() || !back.trim()) return;
-    onSubmit({ front, back, phonetic, audioUrl, imageUrl, category });
+    const cleanExamples = examples.filter((ex) => ex.en.trim() || ex.vi.trim());
+    onSubmit({ front, back, phonetic, audioUrl, imageUrl, category, examples: cleanExamples });
     if (!initial) {
       // Giữ nguyên nhóm chủ đề để thêm liên tiếp nhiều từ cùng nhóm cho nhanh.
       bump();
@@ -129,6 +170,8 @@ export default function CardForm({ initial, existingCategories = [], onSubmit, o
       setWordQueryFor(null);
       setSpellSuggestions([]);
       setSpellCheckedFor(null);
+      setExamples([]);
+      setExampleQueryFor(null);
     }
   }
 
@@ -218,6 +261,53 @@ export default function CardForm({ initial, existingCategories = [], onSubmit, o
             ))}
           </datalist>
         )}
+      </div>
+
+      <div>
+        <label className="mb-1 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-brand-700/70">
+          <span>Câu ví dụ (tuỳ chọn)</span>
+          {loadingExamples && <span className="normal-case text-brand-700/50">Đang tìm ví dụ...</span>}
+        </label>
+        <div className="space-y-2">
+          {examples.map((ex, i) => (
+            <div key={i} className="flex items-start gap-2 rounded-lg border border-brand-100 bg-brand-50/30 p-2">
+              <div className="min-w-0 flex-1 space-y-1">
+                <input
+                  value={ex.en}
+                  onChange={(e) => updateExample(i, "en", e.target.value)}
+                  placeholder="Câu tiếng Anh"
+                  className="w-full rounded-md border border-brand-100 bg-white px-2 py-1 text-xs outline-none focus:border-brand-400"
+                />
+                <input
+                  value={ex.vi}
+                  onChange={(e) => updateExample(i, "vi", e.target.value)}
+                  placeholder="Dịch nghĩa tiếng Việt"
+                  className="w-full rounded-md border border-brand-100 bg-white px-2 py-1 text-xs outline-none focus:border-brand-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeExample(i)}
+                title="Xoá ví dụ"
+                className="shrink-0 rounded-lg px-2 py-1 text-xs text-red-500/60 hover:bg-red-50"
+              >
+                Xóa
+              </button>
+            </div>
+          ))}
+          {examples.length < 3 && (
+            <button
+              type="button"
+              onClick={addBlankExample}
+              className="text-xs font-medium text-brand-600 hover:underline"
+            >
+              + Thêm ví dụ thủ công
+            </button>
+          )}
+          {!loadingExamples && examples.length === 0 && (
+            <p className="text-xs text-brand-700/50">Gõ từ tiếng Anh rồi rời khỏi ô để tự tìm câu ví dụ.</p>
+          )}
+        </div>
       </div>
 
       <div>

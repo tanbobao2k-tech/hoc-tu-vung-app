@@ -110,3 +110,49 @@ export async function suggestEnglishWord(vietnameseText: string): Promise<string
   if (!translated) return null;
   return translated.trim().toLowerCase().replace(/[.!?]+$/, "");
 }
+
+export interface ExampleSentence {
+  en: string;
+  vi: string;
+}
+
+const MAX_EXAMPLES = 3;
+
+/**
+ * Lấy 2-3 câu ví dụ có sẵn trong từ điển (Wiktionary qua dictionaryapi.dev) cho một
+ * từ tiếng Anh, kèm bản dịch tiếng Việt của từng câu, để người học thấy ngữ cảnh dùng
+ * thực tế. Quét qua mọi định nghĩa (không chỉ định nghĩa đầu của mỗi từ loại) vì phần
+ * lớn định nghĩa không có ví dụ. Trả về mảng rỗng nếu từ không có ví dụ nào.
+ */
+export async function fetchExampleSentences(word: string): Promise<ExampleSentence[]> {
+  const trimmed = word.trim();
+  if (!trimmed) return [];
+
+  try {
+    const res = await fetch(
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(trimmed)}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const entry = Array.isArray(data) ? data[0] : null;
+    const meanings = entry?.meanings;
+    if (!Array.isArray(meanings)) return [];
+
+    const englishExamples: string[] = [];
+    for (const meaning of meanings) {
+      for (const def of meaning?.definitions ?? []) {
+        if (def?.example) englishExamples.push(def.example);
+        if (englishExamples.length >= MAX_EXAMPLES) break;
+      }
+      if (englishExamples.length >= MAX_EXAMPLES) break;
+    }
+    if (englishExamples.length === 0) return [];
+
+    const translations = await Promise.all(
+      englishExamples.map((en) => translateText(en, "en", "vi"))
+    );
+    return englishExamples.map((en, i) => ({ en, vi: translations[i] ?? "" }));
+  } catch {
+    return [];
+  }
+}
