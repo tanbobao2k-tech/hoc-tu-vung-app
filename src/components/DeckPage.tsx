@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CardInput, Deck, VocabCard } from "../types";
 import { isDue } from "../lib/srs";
+import { fetchExampleSentences } from "../lib/meaning";
 import CardForm from "./CardForm";
 import CardListItem from "./CardListItem";
 
@@ -27,6 +28,8 @@ export default function DeckPage({
 }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [bulkAdding, setBulkAdding] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   const categories = useMemo(() => {
     const set = new Set(deck.cards.map((c) => c.category).filter((c): c is string => !!c));
@@ -50,6 +53,29 @@ export default function DeckPage({
   }, [categories, filteredCards]);
 
   const dueCount = filteredCards.filter((c) => isDue(c.nextReviewAt)).length;
+
+  const cardsMissingExamples = filteredCards.filter((c) => !c.examples || c.examples.length === 0);
+
+  async function runBulkAddExamples() {
+    const targets = cardsMissingExamples;
+    if (targets.length === 0 || bulkAdding) return;
+    setBulkAdding(true);
+    setBulkProgress({ done: 0, total: targets.length });
+    for (const card of targets) {
+      const fetched = await fetchExampleSentences(card.front);
+      onUpdateCard(card.id, {
+        front: card.front,
+        back: card.back,
+        phonetic: card.phonetic,
+        audioUrl: card.audioUrl,
+        imageUrl: card.imageUrl,
+        category: card.category,
+        examples: fetched,
+      });
+      setBulkProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+    }
+    setBulkAdding(false);
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -109,6 +135,23 @@ export default function DeckPage({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {cardsMissingExamples.length > 0 && (
+        <div className="mb-4 animate-fade-in-up">
+          {bulkAdding ? (
+            <p className="text-xs text-brand-700/60">
+              Đang tự động thêm ví dụ... ({bulkProgress.done}/{bulkProgress.total})
+            </p>
+          ) : (
+            <button
+              onClick={runBulkAddExamples}
+              className="text-xs font-medium text-brand-600 hover:underline"
+            >
+              Tự động thêm ví dụ cho {cardsMissingExamples.length} thẻ chưa có →
+            </button>
+          )}
         </div>
       )}
 
