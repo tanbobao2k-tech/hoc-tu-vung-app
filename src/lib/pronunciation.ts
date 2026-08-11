@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from "./fetchWithTimeout";
+import { fetchDictionaryEntry } from "./dictionary";
 
 export interface PronunciationInfo {
   phonetic?: string;
@@ -10,35 +10,10 @@ export interface PronunciationInfo {
  * Lỗi mạng hoặc không tìm thấy từ đều trả về rỗng thay vì throw, vì đây chỉ là gợi ý
  * hỗ trợ thêm — người dùng vẫn có thể tự nhập phiên âm hoặc dùng nút đọc bằng giọng máy.
  */
-export async function lookupPronunciation(
-  word: string
-): Promise<PronunciationInfo> {
-  const trimmed = word.trim();
-  if (!trimmed) return {};
-
-  try {
-    const res = await fetchWithTimeout(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(
-        trimmed
-      )}`
-    );
-    if (!res?.ok) return {};
-    const data = await res.json();
-    const entry = Array.isArray(data) ? data[0] : null;
-    if (!entry) return {};
-
-    const phoneticEntry = (entry.phonetics as Array<{
-      text?: string;
-      audio?: string;
-    }>)?.find((p) => p.audio) ?? entry.phonetics?.[0];
-
-    return {
-      phonetic: entry.phonetic ?? phoneticEntry?.text ?? undefined,
-      audioUrl: phoneticEntry?.audio || undefined,
-    };
-  } catch {
-    return {};
-  }
+export async function lookupPronunciation(word: string): Promise<PronunciationInfo> {
+  const entry = await fetchDictionaryEntry(word);
+  if (!entry) return {};
+  return { phonetic: entry.phonetic, audioUrl: entry.audioUrl };
 }
 
 /** Đọc từ bằng giọng tổng hợp của trình duyệt (dùng khi không có audio thật). */

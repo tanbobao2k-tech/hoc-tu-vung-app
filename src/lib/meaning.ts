@@ -1,10 +1,5 @@
 import { fetchWithTimeout } from "./fetchWithTimeout";
-
-interface WordSense {
-  partOfSpeech: string;
-  definitionEn: string;
-  exampleEn?: string;
-}
+import { fetchDictionaryEntry } from "./dictionary";
 
 const POS_LABEL_VI: Record<string, string> = {
   noun: "danh từ",
@@ -18,36 +13,6 @@ const POS_LABEL_VI: Record<string, string> = {
   determiner: "hạn định từ",
   exclamation: "thán từ",
 };
-
-const MAX_SENSES = 4;
-
-async function fetchEnglishSenses(word: string): Promise<WordSense[]> {
-  try {
-    const res = await fetchWithTimeout(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`
-    );
-    if (!res?.ok) return [];
-    const data = await res.json();
-    const entry = Array.isArray(data) ? data[0] : null;
-    const meanings = entry?.meanings;
-    if (!Array.isArray(meanings)) return [];
-
-    const senses: WordSense[] = [];
-    for (const meaning of meanings) {
-      const def = meaning?.definitions?.[0];
-      if (!def?.definition) continue;
-      senses.push({
-        partOfSpeech: meaning.partOfSpeech ?? "",
-        definitionEn: def.definition,
-        exampleEn: def.example || undefined,
-      });
-      if (senses.length >= MAX_SENSES) break;
-    }
-    return senses;
-  } catch {
-    return [];
-  }
-}
 
 type Lang = "en" | "vi";
 
@@ -105,7 +70,8 @@ async function translateText(text: string, from: Lang, to: Lang): Promise<string
  * Nếu không tra được nghĩa chi tiết, fallback về dịch thẳng cả từ.
  */
 export async function suggestVietnameseMeaning(word: string): Promise<string> {
-  const senses = await fetchEnglishSenses(word);
+  const entry = await fetchDictionaryEntry(word);
+  const senses = entry?.senses ?? [];
 
   if (senses.length === 0) {
     const direct = await translateText(word, "en", "vi");
@@ -148,38 +114,13 @@ const MAX_EXAMPLES = 3;
 /**
  * Lấy 2-3 câu ví dụ có sẵn trong từ điển (Wiktionary qua dictionaryapi.dev) cho một
  * từ tiếng Anh, kèm bản dịch tiếng Việt của từng câu, để người học thấy ngữ cảnh dùng
- * thực tế. Quét qua mọi định nghĩa (không chỉ định nghĩa đầu của mỗi từ loại) vì phần
- * lớn định nghĩa không có ví dụ. Trả về mảng rỗng nếu từ không có ví dụ nào.
+ * thực tế. Trả về mảng rỗng nếu từ không có ví dụ nào trong từ điển.
  */
 export async function fetchExampleSentences(word: string): Promise<ExampleSentence[]> {
-  const trimmed = word.trim();
-  if (!trimmed) return [];
+  const entry = await fetchDictionaryEntry(word);
+  const englishExamples = (entry?.allExamples ?? []).slice(0, MAX_EXAMPLES);
+  if (englishExamples.length === 0) return [];
 
-  try {
-    const res = await fetchWithTimeout(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(trimmed)}`
-    );
-    if (!res?.ok) return [];
-    const data = await res.json();
-    const entry = Array.isArray(data) ? data[0] : null;
-    const meanings = entry?.meanings;
-    if (!Array.isArray(meanings)) return [];
-
-    const englishExamples: string[] = [];
-    for (const meaning of meanings) {
-      for (const def of meaning?.definitions ?? []) {
-        if (def?.example) englishExamples.push(def.example);
-        if (englishExamples.length >= MAX_EXAMPLES) break;
-      }
-      if (englishExamples.length >= MAX_EXAMPLES) break;
-    }
-    if (englishExamples.length === 0) return [];
-
-    const translations = await Promise.all(
-      englishExamples.map((en) => translateText(en, "en", "vi"))
-    );
-    return englishExamples.map((en, i) => ({ en, vi: translations[i] ?? "" }));
-  } catch {
-    return [];
-  }
+  const translations = await Promise.all(englishExamples.map((en) => translateText(en, "en", "vi")));
+  return englishExamples.map((en, i) => ({ en, vi: translations[i] ?? "" }));
 }
