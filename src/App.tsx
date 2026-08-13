@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useAuth } from "./hooks/useAuth";
 import { useVocabData } from "./hooks/useVocabData";
 import { VocabCard } from "./types";
+import SignInPage from "./components/SignInPage";
 import DeckListPage from "./components/DeckListPage";
 import DeckPage from "./components/DeckPage";
 import StudyPage from "./components/StudyPage";
@@ -13,8 +15,33 @@ type View =
   | { name: "quiz"; deckId: string; cards: VocabCard[] };
 
 export default function App() {
-  const { decks, createDeck, deleteDeck, addCard, updateCard, deleteCard, reviewCard } = useVocabData();
+  const { user, loading: authLoading, signIn, logOut } = useAuth();
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const { decks, loading: dataLoading, createDeck, deleteDeck, addCard, updateCard, deleteCard, reviewCard } =
+    useVocabData();
   const [view, setView] = useState<View>({ name: "decks" });
+
+  if (authLoading) return null;
+
+  if (!user) {
+    return (
+      <SignInPage
+        error={signInError}
+        onSignIn={() => {
+          setSignInError(null);
+          signIn().catch(() => setSignInError("Đăng nhập thất bại, vui lòng thử lại."));
+        }}
+      />
+    );
+  }
+
+  if (dataLoading) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center text-sm text-brand-700/60">
+        Đang tải dữ liệu...
+      </div>
+    );
+  }
 
   const activeDeck = "deckId" in view ? decks.find((d) => d.id === view.deckId) : undefined;
 
@@ -22,6 +49,8 @@ export default function App() {
     return (
       <DeckListPage
         decks={decks}
+        userEmail={user.email}
+        onSignOut={logOut}
         onCreateDeck={createDeck}
         onOpenDeck={(deckId) => setView({ name: "deck", deckId })}
         onDeleteDeck={deleteDeck}

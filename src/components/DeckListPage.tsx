@@ -4,12 +4,21 @@ import { isDue } from "../lib/srs";
 
 interface Props {
   decks: Deck[];
+  userEmail: string | null;
+  onSignOut: () => void;
   onCreateDeck: (name: string, description?: string) => string;
   onOpenDeck: (deckId: string) => void;
   onDeleteDeck: (deckId: string) => void;
 }
 
-export default function DeckListPage({ decks, onCreateDeck, onOpenDeck, onDeleteDeck }: Props) {
+export default function DeckListPage({
+  decks,
+  userEmail,
+  onSignOut,
+  onCreateDeck,
+  onOpenDeck,
+  onDeleteDeck,
+}: Props) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -26,12 +35,22 @@ export default function DeckListPage({ decks, onCreateDeck, onOpenDeck, onDelete
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-8 animate-fade-in-up">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Học từ vựng</p>
-        <h1 className="mt-1 text-3xl font-extrabold text-brand-900">Bộ thẻ ghi nhớ của bạn</h1>
-        <p className="mt-2 text-sm text-brand-700/70">
-          Tạo bộ thẻ, thêm từ vựng và ôn tập mỗi ngày để ghi nhớ lâu dài.
-        </p>
+      <header className="mb-8 flex items-start justify-between gap-4 animate-fade-in-up">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Học từ vựng</p>
+          <h1 className="mt-1 text-3xl font-extrabold text-brand-900">Bộ thẻ ghi nhớ của bạn</h1>
+          <p className="mt-2 text-sm text-brand-700/70">
+            Tạo bộ thẻ, thêm từ vựng và ôn tập mỗi ngày để ghi nhớ lâu dài.
+          </p>
+        </div>
+        {userEmail && (
+          <div className="shrink-0 text-right">
+            <p className="text-xs text-brand-700/50">{userEmail}</p>
+            <button onClick={onSignOut} className="text-xs font-medium text-brand-600 hover:underline">
+              Đăng xuất
+            </button>
+          </div>
+        )}
       </header>
 
       {decks.length === 0 && !showForm && (
