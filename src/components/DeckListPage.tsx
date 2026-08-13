@@ -7,6 +7,7 @@ interface Props {
   userEmail: string | null;
   onSignOut: () => void;
   onCreateDeck: (name: string, description?: string) => string;
+  onRenameDeck: (deckId: string, name: string, description?: string) => void;
   onOpenDeck: (deckId: string) => void;
   onDeleteDeck: (deckId: string) => void;
 }
@@ -16,12 +17,16 @@ export default function DeckListPage({
   userEmail,
   onSignOut,
   onCreateDeck,
+  onRenameDeck,
   onOpenDeck,
   onDeleteDeck,
 }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -31,6 +36,20 @@ export default function DeckListPage({
     setDescription("");
     setShowForm(false);
     onOpenDeck(id);
+  }
+
+  function startEditing(deck: Deck) {
+    setEditingDeckId(deck.id);
+    setEditName(deck.name);
+    setEditDescription(deck.description ?? "");
+  }
+
+  function handleSaveEdit(e: FormEvent, deckId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!editName.trim()) return;
+    onRenameDeck(deckId, editName, editDescription);
+    setEditingDeckId(null);
   }
 
   return (
@@ -118,6 +137,47 @@ export default function DeckListPage({
       <div className="grid gap-3 sm:grid-cols-2">
         {decks.map((deck, i) => {
           const dueCount = deck.cards.filter((c) => isDue(c.nextReviewAt)).length;
+
+          if (editingDeckId === deck.id) {
+            return (
+              <form
+                key={deck.id}
+                onSubmit={(e) => handleSaveEdit(e, deck.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="space-y-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+              >
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Tên bộ thẻ"
+                  className="w-full rounded-lg border border-brand-200 px-3 py-1.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+                />
+                <input
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Mô tả ngắn (tùy chọn)"
+                  className="w-full rounded-lg border border-brand-200 px-3 py-1.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingDeckId(null)}
+                    className="rounded-lg px-3 py-1 text-xs text-brand-700/70 hover:bg-brand-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-brand-600 px-3 py-1 text-xs font-medium text-white hover:bg-brand-700"
+                  >
+                    Lưu
+                  </button>
+                </div>
+              </form>
+            );
+          }
+
           return (
             <div
               key={deck.id}
@@ -132,17 +192,28 @@ export default function DeckListPage({
                     <p className="mt-0.5 truncate text-xs text-brand-700/60">{deck.description}</p>
                   )}
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`Xóa bộ thẻ "${deck.name}"? Hành động này không thể hoàn tác.`)) {
-                      onDeleteDeck(deck.id);
-                    }
-                  }}
-                  className="shrink-0 rounded-lg px-2 py-1 text-xs text-red-500/60 opacity-0 transition hover:bg-red-50 group-hover:opacity-100"
-                >
-                  Xóa
-                </button>
+                <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditing(deck);
+                    }}
+                    className="rounded-lg px-2 py-1 text-xs text-brand-700/60 hover:bg-brand-50"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Xóa bộ thẻ "${deck.name}"? Hành động này không thể hoàn tác.`)) {
+                        onDeleteDeck(deck.id);
+                      }
+                    }}
+                    className="rounded-lg px-2 py-1 text-xs text-red-500/60 hover:bg-red-50"
+                  >
+                    Xóa
+                  </button>
+                </div>
               </div>
               <div className="mt-4 flex items-center gap-3 text-xs text-brand-700/60">
                 <span>{deck.cards.length} thẻ</span>

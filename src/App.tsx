@@ -17,8 +17,17 @@ type View =
 export default function App() {
   const { user, loading: authLoading, signIn, logOut } = useAuth();
   const [signInError, setSignInError] = useState<string | null>(null);
-  const { decks, loading: dataLoading, createDeck, deleteDeck, addCard, updateCard, deleteCard, reviewCard } =
-    useVocabData();
+  const {
+    decks,
+    loading: dataLoading,
+    createDeck,
+    renameDeck,
+    deleteDeck,
+    addCard,
+    updateCard,
+    deleteCard,
+    reviewCard,
+  } = useVocabData();
   const [view, setView] = useState<View>({ name: "decks" });
 
   if (authLoading) return null;
@@ -52,6 +61,7 @@ export default function App() {
         userEmail={user.email}
         onSignOut={logOut}
         onCreateDeck={createDeck}
+        onRenameDeck={renameDeck}
         onOpenDeck={(deckId) => setView({ name: "deck", deckId })}
         onDeleteDeck={deleteDeck}
       />
