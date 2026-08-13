@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { CardInput, Deck, VocabCard } from "../types";
 import { isDue } from "../lib/srs";
 import { fetchExampleSentences } from "../lib/meaning";
+import { exportDeckToPdf } from "../lib/exportPdf";
 import CardForm from "./CardForm";
 import CardListItem from "./CardListItem";
 
@@ -56,8 +57,7 @@ export default function DeckPage({
 
   const cardsMissingExamples = filteredCards.filter((c) => !c.examples || c.examples.length === 0);
 
-  async function runBulkAddExamples() {
-    const targets = cardsMissingExamples;
+  async function runBulkAddExamples(targets: VocabCard[]) {
     if (targets.length === 0 || bulkAdding) return;
     setBulkAdding(true);
     setBulkProgress({ done: 0, total: targets.length });
@@ -104,6 +104,14 @@ export default function DeckPage({
           >
             Kiểm tra
           </button>
+          <button
+            disabled={filteredCards.length === 0}
+            onClick={() => exportDeckToPdf(deck, groups)}
+            title="Tải bộ từ này về máy dưới dạng PDF"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-brand-700 ring-1 ring-brand-200 transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Tải PDF
+          </button>
         </div>
       </header>
 
@@ -138,19 +146,29 @@ export default function DeckPage({
         </div>
       )}
 
-      {cardsMissingExamples.length > 0 && (
-        <div className="mb-4 animate-fade-in-up">
+      {filteredCards.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 animate-fade-in-up">
           {bulkAdding ? (
             <p className="text-xs text-brand-700/60">
               Đang tự động thêm ví dụ... ({bulkProgress.done}/{bulkProgress.total})
             </p>
           ) : (
-            <button
-              onClick={runBulkAddExamples}
-              className="text-xs font-medium text-brand-600 hover:underline"
-            >
-              Tự động thêm ví dụ cho {cardsMissingExamples.length} thẻ chưa có →
-            </button>
+            <>
+              {cardsMissingExamples.length > 0 && (
+                <button
+                  onClick={() => runBulkAddExamples(cardsMissingExamples)}
+                  className="text-xs font-medium text-brand-600 hover:underline"
+                >
+                  Tự động thêm ví dụ cho {cardsMissingExamples.length} thẻ chưa có →
+                </button>
+              )}
+              <button
+                onClick={() => runBulkAddExamples(filteredCards)}
+                className="text-xs font-medium text-brand-600 hover:underline"
+              >
+                Tạo ví dụ cho tất cả {filteredCards.length} thẻ →
+              </button>
+            </>
           )}
         </div>
       )}
