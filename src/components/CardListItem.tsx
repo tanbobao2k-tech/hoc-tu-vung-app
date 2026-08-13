@@ -6,6 +6,7 @@ import CardForm from "./CardForm";
 
 interface Props {
   card: VocabCard;
+  canEdit: boolean;
   existingCategories?: string[];
   onUpdate: (updates: CardInput) => void;
   onDelete: () => void;
@@ -19,10 +20,10 @@ const BOX_COLOR: Record<number, string> = {
   5: "bg-brand-600 text-white",
 };
 
-export default function CardListItem({ card, existingCategories, onUpdate, onDelete }: Props) {
+export default function CardListItem({ card, canEdit, existingCategories, onUpdate, onDelete }: Props) {
   const [editing, setEditing] = useState(false);
 
-  if (editing) {
+  if (editing && canEdit) {
     return (
       <CardForm
         initial={card}
@@ -56,20 +57,22 @@ export default function CardListItem({ card, existingCategories, onUpdate, onDel
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${BOX_COLOR[card.box]}`}>
         {boxLabel(card.box)}
       </span>
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          onClick={() => setEditing(true)}
-          className="rounded-lg px-2 py-1 text-xs text-brand-700/60 hover:bg-brand-50"
-        >
-          Sửa
-        </button>
-        <button
-          onClick={onDelete}
-          className="rounded-lg px-2 py-1 text-xs text-red-500/70 hover:bg-red-50"
-        >
-          Xóa
-        </button>
-      </div>
+      {canEdit && (
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            onClick={() => setEditing(true)}
+            className="rounded-lg px-2 py-1 text-xs text-brand-700/60 hover:bg-brand-50"
+          >
+            Sửa
+          </button>
+          <button
+            onClick={onDelete}
+            className="rounded-lg px-2 py-1 text-xs text-red-500/70 hover:bg-red-50"
+          >
+            Xóa
+          </button>
+        </div>
+      )}
     </div>
   );
 }

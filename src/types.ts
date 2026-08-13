@@ -17,6 +17,8 @@ export interface VocabCard {
   box: SrsBox; // Cấp độ ghi nhớ (Leitner box)
   nextReviewAt: number; // Thời điểm cần ôn lại tiếp theo (epoch ms)
   reviewCount: number;
+  createdBy: string; // uid người tạo — chỉ người này (hoặc chủ bộ thẻ) mới sửa/xoá được
+  createdByEmail?: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -36,10 +38,8 @@ export interface Deck {
   name: string;
   description?: string;
   cards: VocabCard[];
+  createdBy: string; // uid người tạo bộ thẻ — chỉ người này mới sửa/xoá được bộ
+  createdByEmail?: string | null;
   createdAt: number;
   updatedAt: number;
-}
-
-export interface AppData {
-  decks: Deck[];
 }

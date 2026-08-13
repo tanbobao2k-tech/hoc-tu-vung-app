@@ -4,6 +4,7 @@ import { isDue } from "../lib/srs";
 
 interface Props {
   decks: Deck[];
+  currentUid: string;
   userEmail: string | null;
   onSignOut: () => void;
   onCreateDeck: (name: string, description?: string) => string;
@@ -14,6 +15,7 @@ interface Props {
 
 export default function DeckListPage({
   decks,
+  currentUid,
   userEmail,
   onSignOut,
   onCreateDeck,
@@ -137,6 +139,7 @@ export default function DeckListPage({
       <div className="grid gap-3 sm:grid-cols-2">
         {decks.map((deck, i) => {
           const dueCount = deck.cards.filter((c) => isDue(c.nextReviewAt)).length;
+          const isOwner = deck.createdBy === currentUid;
 
           if (editingDeckId === deck.id) {
             return (
@@ -192,28 +195,30 @@ export default function DeckListPage({
                     <p className="mt-0.5 truncate text-xs text-brand-700/60">{deck.description}</p>
                   )}
                 </div>
-                <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEditing(deck);
-                    }}
-                    className="rounded-lg px-2 py-1 text-xs text-brand-700/60 hover:bg-brand-50"
-                  >
-                    Sửa
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`Xóa bộ thẻ "${deck.name}"? Hành động này không thể hoàn tác.`)) {
-                        onDeleteDeck(deck.id);
-                      }
-                    }}
-                    className="rounded-lg px-2 py-1 text-xs text-red-500/60 hover:bg-red-50"
-                  >
-                    Xóa
-                  </button>
-                </div>
+                {isOwner && (
+                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditing(deck);
+                      }}
+                      className="rounded-lg px-2 py-1 text-xs text-brand-700/60 hover:bg-brand-50"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Xóa bộ thẻ "${deck.name}"? Hành động này không thể hoàn tác.`)) {
+                          onDeleteDeck(deck.id);
+                        }
+                      }}
+                      className="rounded-lg px-2 py-1 text-xs text-red-500/60 hover:bg-red-50"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="mt-4 flex items-center gap-3 text-xs text-brand-700/60">
                 <span>{deck.cards.length} thẻ</span>
@@ -221,6 +226,9 @@ export default function DeckListPage({
                   <span className="rounded-full bg-brand-100 px-2 py-0.5 font-medium text-brand-700">
                     {dueCount} cần ôn
                   </span>
+                )}
+                {!isOwner && deck.createdByEmail && (
+                  <span className="truncate text-brand-700/40">của {deck.createdByEmail}</span>
                 )}
               </div>
             </div>

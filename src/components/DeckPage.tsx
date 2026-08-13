@@ -8,6 +8,7 @@ import CardListItem from "./CardListItem";
 
 interface Props {
   deck: Deck;
+  currentUid: string;
   onBack: () => void;
   onAddCard: (card: CardInput) => void;
   onUpdateCard: (cardId: string, updates: CardInput) => void;
@@ -20,6 +21,7 @@ const UNCATEGORIZED = "__uncategorized__";
 
 export default function DeckPage({
   deck,
+  currentUid,
   onBack,
   onAddCard,
   onUpdateCard,
@@ -27,6 +29,8 @@ export default function DeckPage({
   onStartStudy,
   onStartQuiz,
 }: Props) {
+  const isDeckOwner = deck.createdBy === currentUid;
+  const canEditCard = (card: VocabCard) => isDeckOwner || card.createdBy === currentUid;
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [bulkAdding, setBulkAdding] = useState(false);
@@ -55,7 +59,10 @@ export default function DeckPage({
 
   const dueCount = filteredCards.filter((c) => isDue(c.nextReviewAt)).length;
 
-  const cardsMissingExamples = filteredCards.filter((c) => !c.examples || c.examples.length === 0);
+  const cardsMissingExamples = filteredCards.filter(
+    (c) => canEditCard(c) && (!c.examples || c.examples.length === 0)
+  );
+  const editableFilteredCards = filteredCards.filter(canEditCard);
 
   async function runBulkAddExamples(targets: VocabCard[]) {
     if (targets.length === 0 || bulkAdding) return;
@@ -146,7 +153,7 @@ export default function DeckPage({
         </div>
       )}
 
-      {filteredCards.length > 0 && (
+      {editableFilteredCards.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-3 animate-fade-in-up">
           {bulkAdding ? (
             <p className="text-xs text-brand-700/60">
@@ -163,10 +170,10 @@ export default function DeckPage({
                 </button>
               )}
               <button
-                onClick={() => runBulkAddExamples(filteredCards)}
+                onClick={() => runBulkAddExamples(editableFilteredCards)}
                 className="text-xs font-medium text-brand-600 hover:underline"
               >
-                Tạo ví dụ cho tất cả {filteredCards.length} thẻ →
+                Tạo ví dụ cho tất cả {editableFilteredCards.length} thẻ →
               </button>
             </>
           )}
@@ -211,6 +218,7 @@ export default function DeckPage({
                 <div key={card.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 25}ms` }}>
                   <CardListItem
                     card={card}
+                    canEdit={canEditCard(card)}
                     existingCategories={categories}
                     onUpdate={(updates) => onUpdateCard(card.id, updates)}
                     onDelete={() => onDeleteCard(card.id)}

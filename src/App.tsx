@@ -17,6 +17,9 @@ type View =
 export default function App() {
   const { user, loading: authLoading, signIn, logOut } = useAuth();
   const [signInError, setSignInError] = useState<string | null>(null);
+  // Hook phải gọi vô điều kiện (đúng luật Hooks) — khi chưa đăng nhập thì
+  // uid rỗng, hook sẽ không có dữ liệu gì, không sao vì màn hình đăng nhập
+  // được render trước khi bất cứ dữ liệu nào hiển thị ra.
   const {
     decks,
     loading: dataLoading,
@@ -28,7 +31,7 @@ export default function App() {
     updateCard,
     deleteCard,
     reviewCard,
-  } = useVocabData();
+  } = useVocabData(user?.uid ?? "", user?.email ?? null);
   const [view, setView] = useState<View>({ name: "decks" });
 
   if (authLoading) return null;
@@ -60,6 +63,7 @@ export default function App() {
     content = (
       <DeckListPage
         decks={decks}
+        currentUid={user.uid}
         userEmail={user.email}
         onSignOut={logOut}
         onCreateDeck={createDeck}
@@ -72,6 +76,7 @@ export default function App() {
     content = (
       <DeckPage
         deck={activeDeck}
+        currentUid={user.uid}
         onBack={() => setView({ name: "decks" })}
         onAddCard={(card) => addCard(activeDeck.id, card)}
         onUpdateCard={(cardId, updates) => updateCard(activeDeck.id, cardId, updates)}
