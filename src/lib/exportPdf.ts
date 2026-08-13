@@ -6,9 +6,32 @@ function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
+/** An toàn để đặt trong thuộc tính HTML (vd: src="..."), escape thêm dấu ngoặc kép. */
+function escapeAttr(text: string): string {
+  return escapeHtml(text).replace(/"/g, "&quot;");
+}
+
 interface CardGroup {
   label: string | null;
   cards: VocabCard[];
+}
+
+/** Đợi mọi <img> trong tài liệu tải xong (hoặc lỗi) trước khi in, tối đa timeoutMs. */
+function waitForImages(doc: Document, timeoutMs = 6000): Promise<void> {
+  const imgs = Array.from(doc.images);
+  if (imgs.length === 0) return Promise.resolve();
+
+  const loaded = Promise.all(
+    imgs.map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve());
+        img.addEventListener("error", () => resolve());
+      });
+    })
+  ).then(() => {});
+
+  return Promise.race([loaded, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))]);
 }
 
 /**
@@ -33,25 +56,32 @@ export function exportDeckToPdf(deck: Deck, groups: CardGroup[]) {
             .map(
               (card) => `
                 <div class="card">
-                  <div class="word-row">
-                    <span class="front">${escapeHtml(card.front)}</span>
-                    ${card.phonetic ? `<span class="phonetic">${escapeHtml(card.phonetic)}</span>` : ""}
-                  </div>
-                  <div class="back">${escapeHtml(card.back).replace(/\n/g, "<br/>")}</div>
                   ${
-                    card.examples && card.examples.length > 0
-                      ? `<div class="examples">
-                          ${card.examples
-                            .map(
-                              (ex) =>
-                                `<p class="example"><span>${escapeHtml(ex.en)}</span>${
-                                  ex.vi ? ` <span class="vi">— ${escapeHtml(ex.vi)}</span>` : ""
-                                }</p>`
-                            )
-                            .join("")}
-                        </div>`
+                    card.imageUrl
+                      ? `<img class="thumb" src="${escapeAttr(card.imageUrl)}" alt="" />`
                       : ""
                   }
+                  <div class="card-text">
+                    <div class="word-row">
+                      <span class="front">${escapeHtml(card.front)}</span>
+                      ${card.phonetic ? `<span class="phonetic">${escapeHtml(card.phonetic)}</span>` : ""}
+                    </div>
+                    <div class="back">${escapeHtml(card.back).replace(/\n/g, "<br/>")}</div>
+                    ${
+                      card.examples && card.examples.length > 0
+                        ? `<div class="examples">
+                            ${card.examples
+                              .map(
+                                (ex) =>
+                                  `<p class="example"><span>${escapeHtml(ex.en)}</span>${
+                                    ex.vi ? ` <span class="vi">— ${escapeHtml(ex.vi)}</span>` : ""
+                                  }</p>`
+                              )
+                              .join("")}
+                          </div>`
+                        : ""
+                    }
+                  </div>
                 </div>
               `
             )
@@ -89,7 +119,22 @@ export function exportDeckToPdf(deck: Deck, groups: CardGroup[]) {
             border-bottom: 1px solid #ddd;
             padding-bottom: 4px;
           }
-          .card { break-inside: avoid; padding: 10px 0; border-bottom: 1px solid #eee; }
+          .card {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            break-inside: avoid;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+          }
+          .thumb {
+            width: 56px;
+            height: 56px;
+            object-fit: cover;
+            border-radius: 8px;
+            flex-shrink: 0;
+          }
+          .card-text { flex: 1; min-width: 0; }
           .word-row { display: flex; align-items: baseline; gap: 8px; }
           .front { font-weight: 700; font-size: 15px; }
           .phonetic { color: #888; font-size: 12px; }
@@ -99,6 +144,7 @@ export function exportDeckToPdf(deck: Deck, groups: CardGroup[]) {
           .example .vi { color: #888; }
           @media print {
             body { padding: 0; }
+            .thumb { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           }
         </style>
       </head>
@@ -114,8 +160,8 @@ export function exportDeckToPdf(deck: Deck, groups: CardGroup[]) {
   printWindow.document.close();
   printWindow.focus();
 
-  // Đợi nội dung vẽ xong trước khi mở hộp thoại in, tránh in ra trang trắng.
-  setTimeout(() => {
+  // Đợi ảnh minh hoạ tải xong trước khi mở hộp thoại in, tránh ảnh bị trống trong PDF.
+  waitForImages(printWindow.document).then(() => {
     printWindow.print();
-  }, 300);
+  });
 }
