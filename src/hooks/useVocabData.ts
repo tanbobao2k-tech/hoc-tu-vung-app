@@ -55,11 +55,13 @@ export function useVocabData(uid: string, userEmail: string | null) {
   const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Không cần chờ "hasPendingWrites" hết ở đây — cách né bị đè kết quả (dùng
+    // ở bản cũ, khi mọi thứ gộp vào 1 document chung) không còn cần thiết
+    // khi mỗi bộ thẻ đã là tài liệu riêng độc lập: ghi bộ A không ảnh hưởng gì
+    // đến state của bộ B, nên áp dụng ngay bản cục bộ lạc quan cho mượt.
     const unsub = onSnapshot(
       collection(db, "decks"),
-      { includeMetadataChanges: true },
       (snap) => {
-        if (snap.metadata.hasPendingWrites) return;
         setSyncError(null);
         const next: Record<string, DeckMeta> = {};
         snap.forEach((d) => {
@@ -79,9 +81,7 @@ export function useVocabData(uid: string, userEmail: string | null) {
   useEffect(() => {
     const unsub = onSnapshot(
       collectionGroup(db, "cards"),
-      { includeMetadataChanges: true },
       (snap) => {
-        if (snap.metadata.hasPendingWrites) return;
         setSyncError(null);
         const next: Record<string, VocabCard[]> = {};
         snap.forEach((d) => {
