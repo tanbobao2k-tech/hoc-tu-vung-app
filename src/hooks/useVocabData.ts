@@ -16,12 +16,18 @@ function newId(): string {
 export function useVocabData() {
   const [data, setData] = useState<AppData>({ decks: [] });
   const [loading, setLoading] = useState(true);
+  // Trước đây lỗi đọc/ghi Firestore bị nuốt âm thầm — nếu rule chặn quyền hay
+  // mạng lỗi, người dùng chỉ thấy danh sách trống hoặc tưởng đã lưu (do state
+  // cục bộ cập nhật lạc quan) mà không biết bản ghi thật ra chưa từng lên được
+  // server. Giờ mọi lỗi được đưa ra syncError để hiển thị rõ cho người dùng.
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(
       SHARED_DOC,
       { includeMetadataChanges: true },
       (snap) => {
+        setSyncError(null);
         if (snap.exists()) {
           // `hasPendingWrites` là true khi vẫn còn ghi CỦA CHÍNH MÌNH cho tài
           // liệu này chưa được server xác nhận — Firestore chỉ trả về false khi
@@ -35,11 +41,14 @@ export function useVocabData() {
             setData(remote.decks ? remote : { decks: [] });
           }
         } else {
-          setDoc(SHARED_DOC, { decks: [] });
+          setDoc(SHARED_DOC, { decks: [] }).catch((err) => setSyncError(String(err?.message ?? err)));
         }
         setLoading(false);
       },
-      () => setLoading(false)
+      (err) => {
+        setSyncError(`Không đọc được dữ liệu: ${err.message}`);
+        setLoading(false);
+      }
     );
     return unsub;
   }, []);
@@ -47,7 +56,9 @@ export function useVocabData() {
   const updateRemote = useCallback((updater: (prev: AppData) => AppData) => {
     setData((prev) => {
       const next = updater(prev);
-      setDoc(SHARED_DOC, next).catch(() => {});
+      setDoc(SHARED_DOC, next)
+        .then(() => setSyncError(null))
+        .catch((err) => setSyncError(`Không lưu được thay đổi: ${err.message}`));
       return next;
     });
   }, []);
@@ -188,6 +199,7 @@ export function useVocabData() {
   return {
     decks: data.decks,
     loading,
+    syncError,
     createDeck,
     renameDeck,
     deleteDeck,

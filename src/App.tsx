@@ -20,6 +20,7 @@ export default function App() {
   const {
     decks,
     loading: dataLoading,
+    syncError,
     createDeck,
     renameDeck,
     deleteDeck,
@@ -54,8 +55,9 @@ export default function App() {
 
   const activeDeck = "deckId" in view ? decks.find((d) => d.id === view.deckId) : undefined;
 
+  let content;
   if (view.name === "decks" || !activeDeck) {
-    return (
+    content = (
       <DeckListPage
         decks={decks}
         userEmail={user.email}
@@ -66,10 +68,8 @@ export default function App() {
         onDeleteDeck={deleteDeck}
       />
     );
-  }
-
-  if (view.name === "deck") {
-    return (
+  } else if (view.name === "deck") {
+    content = (
       <DeckPage
         deck={activeDeck}
         onBack={() => setView({ name: "decks" })}
@@ -80,11 +80,18 @@ export default function App() {
         onStartQuiz={(cards) => setView({ name: "quiz", deckId: activeDeck.id, cards })}
       />
     );
-  }
-
-  if (view.name === "study") {
-    return (
+  } else if (view.name === "study") {
+    content = (
       <StudyPage
+        cards={view.cards}
+        onBack={() => setView({ name: "deck", deckId: activeDeck.id })}
+        onReview={(cardId, remembered) => reviewCard(activeDeck.id, cardId, remembered)}
+      />
+    );
+  } else {
+    content = (
+      <QuizPage
+        deckName={activeDeck.name}
         cards={view.cards}
         onBack={() => setView({ name: "deck", deckId: activeDeck.id })}
         onReview={(cardId, remembered) => reviewCard(activeDeck.id, cardId, remembered)}
@@ -93,11 +100,13 @@ export default function App() {
   }
 
   return (
-    <QuizPage
-      deckName={activeDeck.name}
-      cards={view.cards}
-      onBack={() => setView({ name: "deck", deckId: activeDeck.id })}
-      onReview={(cardId, remembered) => reviewCard(activeDeck.id, cardId, remembered)}
-    />
+    <>
+      {syncError && (
+        <div className="bg-red-50 px-4 py-2 text-center text-xs font-medium text-red-700">
+          ⚠ {syncError}
+        </div>
+      )}
+      {content}
+    </>
   );
 }

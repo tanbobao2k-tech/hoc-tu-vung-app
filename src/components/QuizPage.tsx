@@ -185,7 +185,9 @@ export default function QuizPage({ deckName, cards, onBack, onReview }: Props) {
     return (
       <div className="mx-auto max-w-md animate-fade-in-up px-4 py-16 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-brand-500">Kết quả</p>
-        <h2 className="mt-1 text-3xl font-extrabold text-brand-900">Tốt lắm bé cưng !!</h2>
+        <h2 className="mt-1 text-3xl font-extrabold text-brand-900">
+          {pct < 50 ? "Học hành không ổn rồi, cho 5 roi vào mông" : "Tốt lắm bé cưng !!"}
+        </h2>
         <p className="mt-3 text-5xl font-extrabold text-brand-600">{pct}%</p>
         <p className="mt-2 text-brand-700/70">
           Đúng {correctCount}/{total} câu
