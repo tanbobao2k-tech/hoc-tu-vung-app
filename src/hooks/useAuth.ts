@@ -1,58 +1,34 @@
 import { useEffect, useState } from "react";
 import {
-  getRedirectResult,
+  isSignInWithEmailLink,
   onAuthStateChanged,
-  signInWithPopup,
-  signInWithRedirect,
+  sendSignInLinkToEmail,
+  signInWithEmailLink,
   signOut,
   User,
 } from "firebase/auth";
-import { auth, googleProvider } from "../lib/firebase";
+import { auth } from "../lib/firebase";
 import { describeAuthError } from "../lib/authError";
 
-function isMobile(): boolean {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const EMAIL_STORAGE_KEY = "emailForSignIn";
+
+function actionCodeSettings() {
+  return {
+    // Quay lại đúng URL app hiện tại (bỏ query string cũ nếu có) sau khi bấm
+    // link trong email.
+    url: window.location.href.split("?")[0],
+    handleCodeInApp: true,
+  };
 }
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
-  // onAuthStateChanged có thể bắn lần đầu với user=null TRƯỚC KHI
-  // getRedirectResult() xử lý xong lượt đăng nhập redirect vừa quay về —
-  // nếu chỉ dựa vào onAuthStateChanged để tắt "loading", app sẽ chớp qua
-  // màn hình đăng nhập (hoặc kẹt luôn ở đó) trước khi kịp nhận user thật.
-  // Phải đợi CẢ HAI việc xong mới coi là hết loading.
   const [authStateReady, setAuthStateReady] = useState(false);
-  const [redirectChecked, setRedirectChecked] = useState(false);
-  const [redirectError, setRedirectError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Trên di động dùng signInWithRedirect (chuyển hẳn trang) thay vì popup
-    // vì popup hay lỗi "missing initial state" trên trình duyệt di động
-    // chặn lưu trữ chia sẻ giữa 2 cửa sổ. Quay lại từ redirect thì xử lý
-    // kết quả ở đây.
-    const wasRedirecting = localStorage.getItem("pendingGoogleRedirect") === "1";
-    getRedirectResult(auth)
-      .then((result) => {
-        // Vừa quay lại từ redirect (đã tự đặt cờ trước khi điều hướng đi) mà
-        // không có lỗi NHƯNG cũng không có kết quả — nghĩa là Firebase không
-        // nhận ra vừa có một lượt đăng nhập redirect nào cả (rất có thể do
-        // trình duyệt chặn lưu trữ khiến trạng thái redirect bị mất giữa
-        // chừng), khác với lỗi có thể bắt được qua catch bên dưới.
-        if (wasRedirecting && !result) {
-          setRedirectError(
-            "Đăng nhập không hoàn tất khi quay lại từ Google. Trình duyệt có thể đang chặn lưu trữ — thử tắt chế độ duyệt web riêng tư/chặn theo dõi cho trang này rồi thử lại."
-          );
-        }
-      })
-      .catch((err) => {
-        const message = describeAuthError(err);
-        if (message) setRedirectError(message);
-      })
-      .finally(() => {
-        localStorage.removeItem("pendingGoogleRedirect");
-        setRedirectChecked(true);
-      });
-  }, []);
+  const [completingSignIn, setCompletingSignIn] = useState(false);
+  // true khi link đăng nhập được bấm trên MÁY/TRÌNH DUYỆT khác với lúc gửi —
+  // localStorage lưu email không còn, cần người dùng tự xác nhận lại email.
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(
     () =>
@@ -63,22 +39,62 @@ export function useAuth() {
     []
   );
 
-  const signIn = () => {
-    setRedirectError(null);
-    if (isMobile()) {
-      localStorage.setItem("pendingGoogleRedirect", "1");
-      return signInWithRedirect(auth, googleProvider);
+  // Vừa quay lại từ việc bấm link đăng nhập trong email — hoàn tất đăng nhập.
+  // Đây là cách đăng nhập không cần popup/redirect qua Google, nên tránh
+  // được hoàn toàn lỗi trình duyệt di động chặn chia sẻ trạng thái giữa các
+  // domain khác nhau.
+  useEffect(() => {
+    if (!isSignInWithEmailLink(auth, window.location.href)) return;
+    const storedEmail = localStorage.getItem(EMAIL_STORAGE_KEY);
+    if (!storedEmail) {
+      setNeedsEmailConfirm(true);
+      return;
     }
-    return signInWithPopup(auth, googleProvider);
+    setCompletingSignIn(true);
+    signInWithEmailLink(auth, storedEmail, window.location.href)
+      .catch((err) => setError(describeAuthError(err)))
+      .finally(() => {
+        localStorage.removeItem(EMAIL_STORAGE_KEY);
+        setCompletingSignIn(false);
+        window.history.replaceState({}, "", window.location.pathname);
+      });
+  }, []);
+
+  const sendLink = async (email: string) => {
+    setError(null);
+    try {
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings());
+      localStorage.setItem(EMAIL_STORAGE_KEY, email);
+      return true;
+    } catch (err) {
+      setError(describeAuthError(err));
+      return false;
+    }
+  };
+
+  const confirmEmailAndSignIn = async (email: string) => {
+    setCompletingSignIn(true);
+    setError(null);
+    try {
+      await signInWithEmailLink(auth, email, window.location.href);
+      setNeedsEmailConfirm(false);
+    } catch (err) {
+      setError(describeAuthError(err));
+    } finally {
+      setCompletingSignIn(false);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   };
 
   const logOut = () => signOut(auth);
 
   return {
     user,
-    loading: !authStateReady || !redirectChecked,
-    signIn,
+    loading: !authStateReady || completingSignIn,
+    needsEmailConfirm,
+    error,
+    sendLink,
+    confirmEmailAndSignIn,
     logOut,
-    redirectError,
   };
 }

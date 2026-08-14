@@ -1,23 +1,65 @@
-import { useState } from "react";
-import { detectInAppBrowser } from "../lib/inAppBrowser";
+import { FormEvent, useState } from "react";
 
 interface Props {
-  onSignIn: () => void;
+  needsEmailConfirm: boolean;
   error?: string | null;
+  onSendLink: (email: string) => Promise<boolean>;
+  onConfirmEmail: (email: string) => void;
 }
 
-export default function SignInPage({ onSignIn, error }: Props) {
-  const [copied, setCopied] = useState(false);
-  const inAppBrowser = detectInAppBrowser();
+export default function SignInPage({ needsEmailConfirm, error, onSendLink, onConfirmEmail }: Props) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  function copyLink() {
-    navigator.clipboard
-      .writeText(window.location.href)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => {});
+  async function handleSend(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || sending) return;
+    setSending(true);
+    const ok = await onSendLink(email.trim());
+    setSending(false);
+    if (ok) setSent(true);
+  }
+
+  function handleConfirm(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    onConfirmEmail(email.trim());
+  }
+
+  if (needsEmailConfirm) {
+    return (
+      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-4 text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Học từ vựng</p>
+        <h1 className="mt-2 text-2xl font-extrabold text-brand-900">Xác nhận email</h1>
+        <p className="mt-2 text-sm text-brand-700/70">
+          Bạn đang mở liên kết đăng nhập trên một thiết bị/trình duyệt khác với lúc gửi. Nhập lại email
+          bạn đã dùng để nhận liên kết này.
+        </p>
+        <form onSubmit={handleConfirm} className="mt-6 w-full space-y-3">
+          <input
+            type="email"
+            autoFocus
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ban@gmail.com"
+            className="w-full rounded-lg border border-brand-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+          />
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"
+          >
+            Xác nhận
+          </button>
+        </form>
+        {error && (
+          <div className="mt-4 w-full rounded-xl bg-red-50 p-4 text-left ring-1 ring-red-200">
+            <p className="text-sm font-medium text-red-700">⚠ {error}</p>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -25,46 +67,49 @@ export default function SignInPage({ onSignIn, error }: Props) {
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Học từ vựng</p>
       <h1 className="mt-2 text-2xl font-extrabold text-brand-900">Đăng nhập để bắt đầu</h1>
       <p className="mt-2 text-sm text-brand-700/70">
-        Dữ liệu được lưu chung — đăng nhập bằng Google để xem và chỉnh sửa cùng một bộ từ vựng trên mọi
-        thiết bị.
+        Dữ liệu được lưu chung — đăng nhập bằng email để xem và chỉnh sửa cùng một bộ từ vựng trên mọi
+        thiết bị. Không cần mật khẩu, chỉ cần bấm vào liên kết gửi tới email của bạn.
       </p>
 
-      {inAppBrowser && (
-        <div className="mt-5 rounded-xl bg-amber-50 p-4 text-left ring-1 ring-amber-200">
-          <p className="text-sm font-medium text-amber-800">
-            ⚠ Bạn đang mở trang này trong trình duyệt của {inAppBrowser}
-          </p>
-          <p className="mt-1 text-xs text-amber-700">
-            Đăng nhập Google thường bị lỗi trong trình duyệt nhúng của {inAppBrowser}. Hãy sao chép liên
-            kết rồi mở bằng Safari/Chrome thật trên điện thoại.
+      {sent ? (
+        <div className="mt-6 w-full rounded-xl bg-brand-50 p-4 text-left ring-1 ring-brand-200">
+          <p className="text-sm font-medium text-brand-800">✓ Đã gửi liên kết đến {email}</p>
+          <p className="mt-1 text-xs text-brand-700/70">
+            Mở hộp thư (kiểm tra cả mục Spam nếu chưa thấy) và bấm vào liên kết để đăng nhập.
           </p>
           <button
-            onClick={copyLink}
-            className="mt-3 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+            onClick={() => setSent(false)}
+            className="mt-3 text-xs font-medium text-brand-600 hover:underline"
           >
-            {copied ? "Đã sao chép ✓" : "Sao chép liên kết"}
+            Dùng email khác / gửi lại
           </button>
         </div>
+      ) : (
+        <form onSubmit={handleSend} className="mt-6 w-full space-y-3">
+          <input
+            type="email"
+            autoFocus
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ban@gmail.com"
+            className="w-full rounded-lg border border-brand-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+          />
+          <button
+            type="submit"
+            disabled={sending}
+            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {sending ? "Đang gửi..." : "Gửi liên kết đăng nhập"}
+          </button>
+        </form>
       )}
 
       {error && (
-        <div className="mt-5 rounded-xl bg-red-50 p-4 text-left ring-1 ring-red-200">
+        <div className="mt-4 w-full rounded-xl bg-red-50 p-4 text-left ring-1 ring-red-200">
           <p className="text-sm font-medium text-red-700">⚠ {error}</p>
         </div>
       )}
-
-      <button
-        onClick={onSignIn}
-        className="mt-6 flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"
-      >
-        <svg viewBox="0 0 24 24" className="h-4 w-4">
-          <path
-            fill="currentColor"
-            d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"
-          />
-        </svg>
-        Đăng nhập bằng Google
-      </button>
     </div>
   );
 }

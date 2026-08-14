@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useVocabData } from "./hooks/useVocabData";
-import { describeAuthError } from "./lib/authError";
 import { VocabCard } from "./types";
 import SignInPage from "./components/SignInPage";
 import DeckListPage from "./components/DeckListPage";
@@ -16,8 +15,15 @@ type View =
   | { name: "quiz"; deckId: string; cards: VocabCard[] };
 
 export default function App() {
-  const { user, loading: authLoading, signIn, logOut, redirectError } = useAuth();
-  const [signInError, setSignInError] = useState<string | null>(null);
+  const {
+    user,
+    loading: authLoading,
+    needsEmailConfirm,
+    error: authError,
+    sendLink,
+    confirmEmailAndSignIn,
+    logOut,
+  } = useAuth();
   // Hook phải gọi vô điều kiện (đúng luật Hooks) — khi chưa đăng nhập thì
   // uid rỗng, hook sẽ không có dữ liệu gì, không sao vì màn hình đăng nhập
   // được render trước khi bất cứ dữ liệu nào hiển thị ra.
@@ -40,14 +46,10 @@ export default function App() {
   if (!user) {
     return (
       <SignInPage
-        error={signInError ?? redirectError}
-        onSignIn={() => {
-          setSignInError(null);
-          signIn().catch((err) => {
-            const message = describeAuthError(err);
-            if (message) setSignInError(message);
-          });
-        }}
+        needsEmailConfirm={needsEmailConfirm}
+        error={authError}
+        onSendLink={sendLink}
+        onConfirmEmail={confirmEmailAndSignIn}
       />
     );
   }
