@@ -57,7 +57,7 @@ export default function DeckListPage({
     for (const parsedDeck of parsedPreview) {
       const deckId = onCreateDeck(parsedDeck.name);
       for (const card of parsedDeck.cards) {
-        onAddCard(deckId, { front: card.front, back: card.back });
+        onAddCard(deckId, { front: card.front, back: card.back, examples: card.examples });
         setImportProgress((p) => ({ ...p, doneCards: p.doneCards + 1 }));
       }
     }
@@ -185,13 +185,16 @@ export default function DeckListPage({
               Dán danh sách từ vựng
             </label>
             <p className="mb-2 text-xs text-brand-700/50">
-              Mỗi dòng không đánh số = tên một bộ thẻ mới. Các dòng đánh số sau đó (vd "1. word: nghĩa")
-              là thẻ từ vựng của bộ đó — tự tách ở dấu ":" cuối cùng trong dòng.
+              Mỗi dòng không đánh số = tên một bộ thẻ mới. Các dòng đánh số sau đó là thẻ từ vựng của bộ
+              đó, hỗ trợ 2 kiểu: đơn giản <span className="font-mono">"1. word: nghĩa"</span>, hoặc đầy
+              đủ <span className="font-mono">"1. word (n): nghĩa – VD: câu ví dụ"</span>.
             </p>
             <textarea
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
-              placeholder={"TÊN BỘ THẺ 1\n1. word: nghĩa\n2. word: nghĩa\n\nTÊN BỘ THẺ 2\n1. word: nghĩa"}
+              placeholder={
+                "TÊN BỘ THẺ 1\n1. real estate (n): bất động sản – VD: She works in real estate.\n2. word: nghĩa\n\nTÊN BỘ THẺ 2\n1. word: nghĩa"
+              }
               rows={10}
               className="w-full resize-y rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 font-mono text-xs outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
             />
