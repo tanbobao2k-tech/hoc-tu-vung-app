@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useVocabData } from "./hooks/useVocabData";
+import { describeAuthError } from "./lib/authError";
 import { VocabCard } from "./types";
 import SignInPage from "./components/SignInPage";
 import DeckListPage from "./components/DeckListPage";
@@ -15,7 +16,7 @@ type View =
   | { name: "quiz"; deckId: string; cards: VocabCard[] };
 
 export default function App() {
-  const { user, loading: authLoading, signIn, logOut } = useAuth();
+  const { user, loading: authLoading, signIn, logOut, redirectError } = useAuth();
   const [signInError, setSignInError] = useState<string | null>(null);
   // Hook phải gọi vô điều kiện (đúng luật Hooks) — khi chưa đăng nhập thì
   // uid rỗng, hook sẽ không có dữ liệu gì, không sao vì màn hình đăng nhập
@@ -39,22 +40,12 @@ export default function App() {
   if (!user) {
     return (
       <SignInPage
-        error={signInError}
+        error={signInError ?? redirectError}
         onSignIn={() => {
           setSignInError(null);
           signIn().catch((err) => {
-            const code = err?.code as string | undefined;
-            if (code === "auth/popup-blocked") {
-              setSignInError("Trình duyệt đã chặn cửa sổ đăng nhập. Vui lòng cho phép popup rồi thử lại.");
-            } else if (code === "auth/cancelled-popup-request" || code === "auth/popup-closed-by-user") {
-              // Người dùng tự đóng popup — không cần báo lỗi.
-            } else if (code === "auth/unauthorized-domain") {
-              setSignInError("Domain này chưa được cấp phép đăng nhập. Báo cho người quản trị app.");
-            } else {
-              setSignInError(
-                "Đăng nhập thất bại. Nếu đang mở trong Zalo/Messenger/Facebook, hãy mở bằng Safari/Chrome thật rồi thử lại."
-              );
-            }
+            const message = describeAuthError(err);
+            if (message) setSignInError(message);
           });
         }}
       />
