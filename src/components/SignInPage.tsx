@@ -47,6 +47,12 @@ export default function SignInPage({ onSignIn, error }: Props) {
         </div>
       )}
 
+      {error && (
+        <div className="mt-5 rounded-xl bg-red-50 p-4 text-left ring-1 ring-red-200">
+          <p className="text-sm font-medium text-red-700">⚠ {error}</p>
+        </div>
+      )}
+
       <button
         onClick={onSignIn}
         className="mt-6 flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"
@@ -59,7 +65,6 @@ export default function SignInPage({ onSignIn, error }: Props) {
         </svg>
         Đăng nhập bằng Google
       </button>
-      {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
