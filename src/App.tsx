@@ -74,6 +74,7 @@ export default function App() {
         onSignOut={logOut}
         onCreateDeck={createDeck}
         onRenameDeck={renameDeck}
+        onAddCard={addCard}
         onOpenDeck={(deckId) => setView({ name: "deck", deckId })}
         onDeleteDeck={deleteDeck}
       />

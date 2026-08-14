@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
-import { Deck } from "../types";
+import { CardInput, Deck } from "../types";
 import { isDue } from "../lib/srs";
+import { parseBulkImport } from "../lib/bulkImport";
 
 interface Props {
   decks: Deck[];
@@ -9,6 +10,7 @@ interface Props {
   onSignOut: () => void;
   onCreateDeck: (name: string, description?: string) => string;
   onRenameDeck: (deckId: string, name: string, description?: string) => void;
+  onAddCard: (deckId: string, card: CardInput) => void;
   onOpenDeck: (deckId: string) => void;
   onDeleteDeck: (deckId: string) => void;
 }
@@ -20,6 +22,7 @@ export default function DeckListPage({
   onSignOut,
   onCreateDeck,
   onRenameDeck,
+  onAddCard,
   onOpenDeck,
   onDeleteDeck,
 }: Props) {
@@ -29,6 +32,10 @@ export default function DeckListPage({
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ doneCards: 0, totalCards: 0 });
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -38,6 +45,25 @@ export default function DeckListPage({
     setDescription("");
     setShowForm(false);
     onOpenDeck(id);
+  }
+
+  const parsedPreview = parseBulkImport(bulkText);
+
+  async function handleBulkImport() {
+    if (parsedPreview.length === 0 || importing) return;
+    setImporting(true);
+    const totalCards = parsedPreview.reduce((s, d) => s + d.cards.length, 0);
+    setImportProgress({ doneCards: 0, totalCards });
+    for (const parsedDeck of parsedPreview) {
+      const deckId = onCreateDeck(parsedDeck.name);
+      for (const card of parsedDeck.cards) {
+        onAddCard(deckId, { front: card.front, back: card.back });
+        setImportProgress((p) => ({ ...p, doneCards: p.doneCards + 1 }));
+      }
+    }
+    setImporting(false);
+    setBulkText("");
+    setShowBulkImport(false);
   }
 
   function startEditing(deck: Deck) {
@@ -74,28 +100,44 @@ export default function DeckListPage({
         )}
       </header>
 
-      {decks.length === 0 && !showForm && (
+      {decks.length === 0 && !showForm && !showBulkImport && (
         <div className="animate-fade-in-up rounded-2xl border border-dashed border-brand-300 bg-white/60 p-8 text-center">
           <p className="text-brand-700/70">Bạn chưa có bộ thẻ nào. Hãy tạo bộ thẻ đầu tiên!</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-          >
-            + Tạo bộ thẻ mới
-          </button>
+          <div className="mt-4 flex justify-center gap-2">
+            <button
+              onClick={() => setShowForm(true)}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              + Tạo bộ thẻ mới
+            </button>
+            <button
+              onClick={() => setShowBulkImport(true)}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50"
+            >
+              Nhập nhanh nhiều bộ
+            </button>
+          </div>
         </div>
       )}
 
       {decks.length > 0 && (
         <div className="mb-4 flex items-center justify-between animate-fade-in-up">
           <h2 className="text-sm font-medium text-brand-700/70">{decks.length} bộ thẻ</h2>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-            >
-              + Bộ thẻ mới
-            </button>
+          {!showForm && !showBulkImport && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBulkImport(true)}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50"
+              >
+                Nhập nhanh nhiều bộ
+              </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+              >
+                + Bộ thẻ mới
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -134,6 +176,65 @@ export default function DeckListPage({
             </button>
           </div>
         </form>
+      )}
+
+      {showBulkImport && (
+        <div className="mb-6 animate-fade-in-up space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-brand-700/70">
+              Dán danh sách từ vựng
+            </label>
+            <p className="mb-2 text-xs text-brand-700/50">
+              Mỗi dòng không đánh số = tên một bộ thẻ mới. Các dòng đánh số sau đó (vd "1. word: nghĩa")
+              là thẻ từ vựng của bộ đó — tự tách ở dấu ":" cuối cùng trong dòng.
+            </p>
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={"TÊN BỘ THẺ 1\n1. word: nghĩa\n2. word: nghĩa\n\nTÊN BỘ THẺ 2\n1. word: nghĩa"}
+              rows={10}
+              className="w-full resize-y rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 font-mono text-xs outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+            />
+          </div>
+
+          {parsedPreview.length > 0 && (
+            <p className="text-xs text-brand-700/60">
+              Nhận diện được <span className="font-semibold text-brand-700">{parsedPreview.length}</span>{" "}
+              bộ thẻ,{" "}
+              <span className="font-semibold text-brand-700">
+                {parsedPreview.reduce((s, d) => s + d.cards.length, 0)}
+              </span>{" "}
+              thẻ: {parsedPreview.map((d) => `${d.name} (${d.cards.length})`).join(", ")}
+            </p>
+          )}
+
+          {importing ? (
+            <p className="text-xs text-brand-700/60">
+              Đang nhập... ({importProgress.doneCards}/{importProgress.totalCards})
+            </p>
+          ) : (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBulkImport(false);
+                  setBulkText("");
+                }}
+                className="rounded-lg px-3 py-1.5 text-sm text-brand-700/70 hover:bg-brand-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={parsedPreview.length === 0}
+                onClick={handleBulkImport}
+                className="rounded-lg bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Nhập {parsedPreview.length > 0 ? `${parsedPreview.length} bộ thẻ` : ""}
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
