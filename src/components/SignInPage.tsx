@@ -1,9 +1,25 @@
+import { useState } from "react";
+import { detectInAppBrowser } from "../lib/inAppBrowser";
+
 interface Props {
   onSignIn: () => void;
   error?: string | null;
 }
 
 export default function SignInPage({ onSignIn, error }: Props) {
+  const [copied, setCopied] = useState(false);
+  const inAppBrowser = detectInAppBrowser();
+
+  function copyLink() {
+    navigator.clipboard
+      .writeText(window.location.href)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
+  }
+
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-4 text-center">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Học từ vựng</p>
@@ -12,6 +28,25 @@ export default function SignInPage({ onSignIn, error }: Props) {
         Dữ liệu được lưu chung — đăng nhập bằng Google để xem và chỉnh sửa cùng một bộ từ vựng trên mọi
         thiết bị.
       </p>
+
+      {inAppBrowser && (
+        <div className="mt-5 rounded-xl bg-amber-50 p-4 text-left ring-1 ring-amber-200">
+          <p className="text-sm font-medium text-amber-800">
+            ⚠ Bạn đang mở trang này trong trình duyệt của {inAppBrowser}
+          </p>
+          <p className="mt-1 text-xs text-amber-700">
+            Đăng nhập Google thường bị lỗi trong trình duyệt nhúng của {inAppBrowser}. Hãy sao chép liên
+            kết rồi mở bằng Safari/Chrome thật trên điện thoại.
+          </p>
+          <button
+            onClick={copyLink}
+            className="mt-3 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+          >
+            {copied ? "Đã sao chép ✓" : "Sao chép liên kết"}
+          </button>
+        </div>
+      )}
+
       <button
         onClick={onSignIn}
         className="mt-6 flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"

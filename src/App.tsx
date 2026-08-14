@@ -42,7 +42,20 @@ export default function App() {
         error={signInError}
         onSignIn={() => {
           setSignInError(null);
-          signIn().catch(() => setSignInError("Đăng nhập thất bại, vui lòng thử lại."));
+          signIn().catch((err) => {
+            const code = err?.code as string | undefined;
+            if (code === "auth/popup-blocked") {
+              setSignInError("Trình duyệt đã chặn cửa sổ đăng nhập. Vui lòng cho phép popup rồi thử lại.");
+            } else if (code === "auth/cancelled-popup-request" || code === "auth/popup-closed-by-user") {
+              // Người dùng tự đóng popup — không cần báo lỗi.
+            } else if (code === "auth/unauthorized-domain") {
+              setSignInError("Domain này chưa được cấp phép đăng nhập. Báo cho người quản trị app.");
+            } else {
+              setSignInError(
+                "Đăng nhập thất bại. Nếu đang mở trong Zalo/Messenger/Facebook, hãy mở bằng Safari/Chrome thật rồi thử lại."
+              );
+            }
+          });
         }}
       />
     );
