@@ -44,9 +44,14 @@ async function fetchDictionaryEntryUncached(word: string): Promise<DictionaryEnt
     const entry = Array.isArray(data) ? data[0] : null;
     if (!entry) return null;
 
+    // dictionaryapi.dev gắn hậu tố "-uk"/"-us"/"-au" vào tên file audio để phân biệt
+    // giọng — ưu tiên giọng Anh-Anh (Oxford/RP) trước, sau đó mới đến giọng bất kỳ có
+    // audio, cuối cùng mới lấy phiên âm đầu tiên (có thể không có audio).
+    const phonetics = (entry.phonetics as Array<{ text?: string; audio?: string }>) ?? [];
     const phoneticEntry =
-      (entry.phonetics as Array<{ text?: string; audio?: string }>)?.find((p) => p.audio) ??
-      entry.phonetics?.[0];
+      phonetics.find((p) => p.audio?.includes("-uk")) ??
+      phonetics.find((p) => p.audio) ??
+      phonetics[0];
 
     const senses: DictionarySense[] = [];
     const allExamples: string[] = [];
@@ -66,7 +71,7 @@ async function fetchDictionaryEntryUncached(word: string): Promise<DictionaryEnt
     }
 
     return {
-      phonetic: entry.phonetic ?? phoneticEntry?.text ?? undefined,
+      phonetic: phoneticEntry?.text ?? entry.phonetic ?? undefined,
       audioUrl: phoneticEntry?.audio || undefined,
       senses,
       allExamples,

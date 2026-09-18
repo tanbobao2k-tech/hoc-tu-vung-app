@@ -16,12 +16,15 @@ export async function lookupPronunciation(word: string): Promise<PronunciationIn
   return { phonetic: entry.phonetic, audioUrl: entry.audioUrl };
 }
 
-/** Đọc từ bằng giọng tổng hợp của trình duyệt (dùng khi không có audio thật). */
+/** Đọc từ bằng giọng tổng hợp của trình duyệt (dùng khi không có audio thật) — ưu
+ * tiên giọng Anh-Anh (Oxford/RP) thay vì Anh-Mỹ. */
 export function speakWord(word: string) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(word);
-  utterance.lang = "en-US";
+  utterance.lang = "en-GB";
+  const ukVoice = window.speechSynthesis.getVoices().find((v) => v.lang === "en-GB");
+  if (ukVoice) utterance.voice = ukVoice;
   utterance.rate = 0.9;
   window.speechSynthesis.speak(utterance);
 }
