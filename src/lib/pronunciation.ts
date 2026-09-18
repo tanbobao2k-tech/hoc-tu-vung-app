@@ -1,4 +1,5 @@
 import { fetchDictionaryEntry } from "./dictionary";
+import { synthesizeLocalAudioUrl } from "./localTts";
 
 export interface PronunciationInfo {
   phonetic?: string;
@@ -6,28 +7,17 @@ export interface PronunciationInfo {
 }
 
 /**
- * Audio TTS của Google Translate (endpoint không chính thức, đã dùng ở nơi khác
- * trong app để dịch chữ) trả về file mp3 thật — dùng làm phương án dự phòng khi
- * dictionaryapi.dev không có sẵn bản ghi âm người thật cho từ đó (rất nhiều từ
- * không có), để nút tải luôn có file để tải bất kể từ gì, giọng đọc rõ ràng dù
- * không phải giọng người thật.
- */
-function googleTtsUrl(word: string): string {
-  return `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
-    word
-  )}&tl=en-GB&client=gtx`;
-}
-
-/**
  * Tra cứu phiên âm + audio phát âm chuẩn từ dictionaryapi.dev (miễn phí, không cần key).
- * Ưu tiên bản ghi âm người thật (giọng Anh-Anh) nếu có; nếu không có thì dùng TTS
- * của Google Translate làm phương án dự phòng để luôn có file tải được.
+ * Ưu tiên bản ghi âm người thật (giọng Anh-Anh) nếu có; nếu không có thì tổng hợp
+ * giọng đọc NGAY TRONG trình duyệt (offline, không gọi API ngoài) để luôn có file
+ * tải được và không bao giờ bị lỗi mạng/link hỏng.
  */
 export async function lookupPronunciation(word: string): Promise<PronunciationInfo> {
   const entry = await fetchDictionaryEntry(word);
+  const audioUrl = entry?.audioUrl || (await synthesizeLocalAudioUrl(word)) || undefined;
   return {
     phonetic: entry?.phonetic,
-    audioUrl: entry?.audioUrl || googleTtsUrl(word),
+    audioUrl,
   };
 }
 
